@@ -8,13 +8,16 @@ import 'react-toastify/dist/ReactToastify.css';
 import confetti from 'canvas-confetti';
 import { useSession } from 'next-auth/react'
 import { handleReenviarCLH, handleSearchGloboPlay, handleSearchTelecine, handleFixitGloboPlay, handleSearchPremiere} from '@/src/lib/celetihub';
-import { handleResetPass, handleSearchCentral } from '@/src/lib/central';
+import { handleFixitApp, handleResetPass, handleSearchCentral } from '@/src/lib/central';
 import { handleSearchMax, handleFixitDeezer, handleReenviarDeezer, handleSearchDeezer, handleSearchPortal } from '@/src/lib/playhub';
+import { handleSearchExitLag, handleReenviarSP, handleFixitSP } from '@/src/lib/superplayer';
 import { authUserRole } from '@/src/app/api/auth/[...nextauth]/authUser';
-import { DarkThemeToggle } from 'flowbite-react';
+import { getNotifications } from '../app/api/auth/[...nextauth]/notifications';
+import { DarkThemeToggle, Alert } from 'flowbite-react';
+import Logo from './icons';
+import email from 'next-auth/providers/email';
 
 interface Subscriber {
-  toastcode: number
   name: string;
   document: string;
   phone: string;
@@ -22,10 +25,11 @@ interface Subscriber {
   services: string;
   product_id: number;
   status: string;
+  statusCode: number
 }
 
 interface Custumer {
-  toastcode: number;
+  statusCode: number;
   name: string;
   document: string;
   email: string;
@@ -51,38 +55,69 @@ export default function Index(){
   const [isSuperUser, setIsSuperUser] = useState<boolean | null>(false)
   const [dataFetched, setDataFetched] = useState(false)
   const [svaSelect, setSvaSelect] = useState('Globoplay')
-  const [toastMessage, setToastMessage] = useState('')
   const notify = () => toast("Wow")
   const { data: session } = useSession()
   const userName = session?.user?.name
   const userEmail = session?.user?.email
   const userImage = session?.user?.image
+  const notifications = getNotifications('1')
   const cleanCpf = (inputCpf: string) => {
     return inputCpf.replace(/[./-\s]/g, '')
   }
   const cleanedID = cleanCpf(cpf)
-  
 
+  const showSuccessToast = (message: string) => {
+    toast.success(message, {
+      position: "bottom-right",
+      autoClose: 6000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
+    });
+  };
 
-  let action = svaSelect
-  if (svaSelect === 'App') {
-    action = 'Resetar senha'
-  } else if (svaSelect === 'Deezer') {
-    action = 'Reenviar SMS'
-  } else if (svaSelect === 'Globoplay') {
-    action = 'Reenviar link'
-  } else if (svaSelect === 'Telecine') {
-    action = 'Reenviar link'
-  } else if (svaSelect === 'Premiere') {
-    action = 'Reenviar link'
-  } else if (svaSelect === 'Max') {
-    action = ''
-  } else if (svaSelect === 'Portal') {
-    action = ''
-  }
+  const showWarnToast = (message: string) => {
+    toast.warn(message, {
+      position: "bottom-right",
+      autoClose: 6000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
+    });
+  };
+
+  const showErrorToast = (message: string) => {
+    toast.error(message, {
+      position: "bottom-right",
+      autoClose: 6000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
+    });
+  };
+
+  let action = svaSelect && {
+    'App': 'Resetar senha',
+    'Deezer': 'Reenviar SMS',
+    'Globoplay': 'Reenviar link',
+    'ExitLag': 'Reenviar link',
+    'Telecine': 'Reenviar link',
+    'Premiere': 'Reenviar link',
+    'Max': '',
+    'Portal': ''
+  }[svaSelect] || '';
 
   useEffect(() => {
-    if (subscriberData?.toastcode === 200 || subscriberApp?.toastcode === 200) {
+    if (subscriberData?.statusCode === 200 || subscriberApp?.statusCode === 200) {
       toast.success('Localizado!', {
         position: "bottom-right",
         autoClose: 6000,
@@ -110,12 +145,12 @@ export default function Index(){
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     const authUser = await authUserRole(userEmail ?? '', userName ?? '', userImage ?? '');
+    
     console.log("AuthUser: ", authUser)
     setIsSuperUser(authUser ? true : false);
 
     if (svaSelect === "Globoplay") {
       console.log('App: ', svaSelect)
-      
       const resultGP = await handleSearchGloboPlay(cleanedID);
       setSubscriberApp(null);
       setSubscriberData(resultGP);
@@ -136,7 +171,12 @@ export default function Index(){
       const resultHBO = await handleSearchMax(cleanedID);
       console.log(resultHBO)
       setSubscriberData(resultHBO || null);
-    } else if (svaSelect === "App") {
+    } else if (svaSelect === "ExitLag") {
+      const resultExitLag = await handleSearchExitLag(cleanedID);
+      setSubscriberApp(null)
+      setSubscriberData(resultExitLag || null)
+      console.log(resultExitLag)
+    }else if (svaSelect === "App") {
       console.log('App: ', svaSelect)
       const resultApp = await handleSearchCentral(cleanedID);
       console.log(resultApp)
@@ -151,171 +191,109 @@ export default function Index(){
     } else {
       console.log('Opção não definida')
     }
+    console.log("SubscriberData: ", subscriberData)
   }
   
   const handleAction = async () => {
+    const { status, product_id, phone, services, email } = subscriberData ?? {};
 
-    if ((svaSelect === 'Globoplay' || 'Telecine' || 'Premiere') && subscriberData?.status === "checkout") {
-      console.log('Product ID:', subscriberData?.product_id);
-      let product_id = subscriberData?.product_id || 0;
-      const resultResendGP = await handleReenviarCLH(cleanedID, product_id, userName||'');
-        toast.success('Link de ativação enviado🚀!', {
-          position: "bottom-right",
+    if (svaSelect === 'Globoplay' || svaSelect === 'Telecine' || svaSelect === 'Premiere') {
+      if (status === 'checkout') {
+        const result = await handleReenviarCLH(cleanedID, product_id ?? 0, userName || '');
+        toast.success('Link de ativação enviado!', {
+          position: 'bottom-right',
           autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
           progress: undefined,
-          theme: "light",
-        }); 
-      } else if (subscriberData?.status === "active" && (svaSelect === 'Globoplay' || 'Telecine' || 'Premiere')){
-        toast.error(`Ops! Cliente esperto. Já ativou o ${subscriberData.services}. 😎`, {
-          position: "bottom-right",
+          theme: 'light',
+        });
+      } else if (status === 'active') {
+        toast.error(`Ops! Cliente esperto. Já ativou o ${services}. 😎`, {
+          position: 'bottom-right',
           autoClose: 6000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
           progress: undefined,
-          theme: "light",
-        }); 
-        } else if (subscriberData?.status === "canceled"){
-          toast.error('Ops! o SVA está cancelado', {
-            position: "bottom-right",
-            autoClose: 6000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "light",
-          }); 
-          } else if (svaSelect === 'Deezer') {
-              const phone = subscriberData?.phone
-              const resultResendDZR = await handleReenviarDeezer(cleanedID, phone||'', userName||'');
-              console.log("Resultado", resultResendDZR)
-              if (resultResendDZR === "Sent" ){
-                toast.success('SMS de ativação enviado! 🚀', {
-                  position: "bottom-right",
-                  autoClose: 6000,
-                  hideProgressBar: false,
-                  closeOnClick: true,
-                  pauseOnHover: true,
-                  draggable: true,
-                  progress: undefined,
-                  theme: "light",
-                });
-              } else if (resultResendDZR === "Active"){
-                  toast.error('A festa está rolando💃🎶 | Já foi ativado', {
-                    position: "bottom-right",
-                    autoClose: 6000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                    progress: undefined,
-                    theme: "light",
-                  });
-                }
+          theme: 'light',
+        });
+      } else if (status === 'canceled') {
+        toast.error('Ops! o SVA está cancelado', {
+          position: 'bottom-right',
+          autoClose: 6000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: 'light',
+        });
+      }
+    } else if (svaSelect === 'Deezer') {
+      const result = await handleReenviarDeezer(cleanedID, phone ?? '', userName || '');
+      if (result === 'Sent') {
+        showSuccessToast('SMS de ativação enviado!');
+      } else if (result === 'Active') {
+        showErrorToast('A festa está rolando! | Já foi ativado');
+      }
+    } else if (svaSelect === 'ExitLag') {
+      const result = await handleReenviarSP( email || '');
+      if (result.message === 'OK') {
+        showSuccessToast('SMS de ativação enviado!');
+      } else if (result === 'Active') {
+        showErrorToast('A festa está rolando! | Já foi ativado');
+      }
 
     } else if (svaSelect === 'App') {
-      const resultResetApp = await handleResetPass(cleanedID, userName||'');
-      if (resultResetApp.isActive === true) {
-        setNewPass(resultResetApp.newPass);
-        toast.success(`Senha resetada com sucesso ✍️`, {
-          position: "bottom-right",
-          autoClose: 10000,
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-        });
-      } else if(resultResetApp === false){
-        console.log('primeiro acesso: ', resultResetApp)
-        toast.error('Cliente não realizou o primeiro acesso', {
-          position: "bottom-right",
-          autoClose: 6000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-        });
+      const result = await handleResetPass(cleanedID, userName || '', 'App/Central');
+      if (result.statusCode === 200) {
+        setNewPass(result.password);
+        showSuccessToast('Senha resetada com sucesso!');
+      } else if (result.statusCode === 500) {
+        showErrorToast('Cliente não realizou o primeiro acesso');
       }
-    } 
-  }
+    }
+  };
 
   const handleFixit = async () => {
-    console.log(svaSelect)
-    if(svaSelect === 'Globoplay' || svaSelect === 'Telecine' || svaSelect === 'Premiere'){
-      const resultFixit = await handleFixitGloboPlay(cleanedID, userName||'', subscriberData?.services ?? 'Erro Product Name' )
-      console.log('resultLog: ', resultFixit)
-      if (resultFixit?.code === 201) {
-        toast.success('Cliente atualizado! 🎉', {
-          position: "bottom-right",
-          autoClose: 6000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-        });
-        showConfetti()
-      } else if (resultFixit?.code === 404) {
-        toast.error('Por favor, verifique o email. 📭', {
-          position: "bottom-right",
-          autoClose: 6000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-        }); } else {
-        console.log ('Erro ao atualizar:', resultFixit)
-        toast.error('Sistema indisponivel 😖, tente novamente mais tarde', {
-          position: "bottom-right",
-          autoClose: 6000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "light",
-        });
+    console.log('svaSelect:', svaSelect);
+    const services = subscriberData?.services ?? 'Erro Product Name';
+
+    if (svaSelect === 'Globoplay' || svaSelect === 'Telecine' || svaSelect === 'Premiere') {
+      const resultFixit = await handleFixitGloboPlay(cleanedID, userName||'', services);
+      if (resultFixit?.statusCode === 201) {
+        showSuccessToast('Cliente atualizado! 🎉');
+        showConfetti();
+      } else if (resultFixit?.statusCode === 404) {
+        showWarnToast('Por favor, verifique o email. 📭');
+      } else {
+        showErrorToast('Sistema indisponivel 😖, tente novamente mais tarde');
       }
-    } else if (svaSelect === 'Deezer' || svaSelect === 'Portal' || svaSelect === 'Max'){
-        const resultFixit = await handleFixitDeezer(cleanedID, userName||'', subscriberData?.services ?? 'Erro Product Name')
-        if (resultFixit?.code === 201) {
-          toast.success('Cliente atualizado! 🎉', {
-            position: "bottom-right",
-            autoClose: 6000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "light",
-          });
-          showConfetti()
-          } else {
-          toast.error('Sistema indisponivel 😖, tente novamente mais tarde', {
-            position: "bottom-right",
-            autoClose: 6000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "light",
-          });
-        }
-      }  
+    } else if (svaSelect === 'App') {
+      const resultFixit = await handleFixitApp(cleanedID, userName||'', 'App/Central');
+      console.log('resultFixit: ', resultFixit)
+      if (resultFixit?.statusCode === 201) {
+        setNewPass(resultFixit.password);
+        showSuccessToast('Cliente registrado! 🎉');
+        showConfetti();
+      } else if (resultFixit?.statusCode === 422) {
+        showWarnToast('Cliente já está registrado. 😾');
+      } else {
+        showErrorToast('Sinto uma perturbação na força 😖. Por favor, tente novamente mais tarde.');
+      }
+    } else if (svaSelect === 'Deezer' || svaSelect === 'Portal' || svaSelect === 'Max') {
+      const resultFixit = await handleFixitDeezer(cleanedID, userName||'', services);
+      if (resultFixit?.statusCode === 201) {
+        showSuccessToast('Cliente atualizado! 🎉');
+        showConfetti();
+      } else {
+        showErrorToast('Sistema indisponivel 😖, tente novamente mais tarde');
+      }
+    }
   }
 
   return (
@@ -325,7 +303,7 @@ export default function Index(){
     <nav className="bg-white border-gray-200 dark:bg-gray-900">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
         <a href="#" className="flex items-center">
-          <img src="/assets/img/logo.png" className="h-8 mr-3" alt="Logo Alares" />
+          <Logo className='h-8 mr-3'/>
           <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">Dex</span>
         </a>
         <form onSubmit={handleSearch}>
@@ -340,6 +318,7 @@ export default function Index(){
             <option value="Premiere">Premiere</option>
             <option value="Deezer">Deezer</option>
             <option value="Max">Max</option>
+            <option value="ExitLag">ExitLag</option>
             <option value="App">App/Central</option>
             <option value="Portal">Portal</option>
             
@@ -364,9 +343,9 @@ export default function Index(){
           </div>
           </form>
           <div className='flex items-center gap-2'>
+            <Alert/>
             <DarkThemeToggle/>
             <Avatar/>
-
           </div>
             
       </div>
@@ -382,6 +361,7 @@ export default function Index(){
         <div className="w-96 p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-8 dark:bg-gray-700 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <h5 className="mb-4 text-xl font-medium text-gray-500 dark:text-gray-400">App | Central</h5>
+          {(<Fixit onFixit={handleFixit} toast={notify} action={action} />)}
         </div>
 
         <div className="flex items-baseline text-gray-900 dark:text-white">

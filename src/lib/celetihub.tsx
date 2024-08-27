@@ -1,3 +1,4 @@
+"use server"
 import axios from 'axios';
 import { handleLog } from './log';
 
@@ -19,7 +20,6 @@ export const handleSearchGloboPlay = async (cleanedID: string) => {
     }
 
     const response = await axios.request(options);
-    
     if (response.status === 200) {
       const subscriber = response.data.subscriber;
       const isGPL = subscriber.services.find((service: { content_supplier_product_id: number; }) => 
@@ -40,9 +40,10 @@ export const handleSearchGloboPlay = async (cleanedID: string) => {
           services: activeService.content_supplier_product_name,
           product_id: activeService.content_supplier_product_id,
           status: activeService.status,
-          toastcode: 200,
+          statusCode: 200,
         };
       }
+      console.log("subscriber: ", subscriber)
     }
       
   } catch (error) {
@@ -85,7 +86,7 @@ export const handleSearchTelecine = async (cleanedID: string) => {
             services: 'Telecine',
             product_id: activeService.content_supplier_product_id,
             status: activeService.status,
-            toastcode: 200,
+            statusCode: 200,
           };
         }
       }
@@ -128,7 +129,7 @@ export const handleSearchPremiere = async (cleanedID: string) => {
             services: 'Premiere',
             product_id: activeService.content_supplier_product_id,
             status: activeService.status,
-            toastcode: 200,
+            statusCode: 200,
           };
         }
       }
@@ -140,6 +141,25 @@ export const handleSearchPremiere = async (cleanedID: string) => {
 }
 
 export const handleReenviarCLH = async (cleanedID: string, product_id: number, username: string) => {
+
+  function isProduct(product_id: number | undefined): string {
+    if (product_id === undefined) {
+      throw new Error('Product ID is undefined');
+    }
+
+    const product: Record<number, string> = {
+      1: 'Globoplay',
+      2: 'Globoplay',
+      3: 'Premiere',
+      4: 'Telecine',
+      6: 'Globoplay',
+      7: 'Globoplay',
+      10: 'Telecine',
+    };
+
+    return product[product_id] || 'Globoplay';
+  }
+  const product_name = isProduct(product_id)
 
   try {
     const options = {
@@ -156,20 +176,11 @@ export const handleReenviarCLH = async (cleanedID: string, product_id: number, u
     const resendGP = await axios.request(options)
 
       if (resendGP.status === 200) {
-        const ativarResponse = await axios.post('api/log',
-          {
-            user: username,
-            customer: cleanedID,
-            action: "Reenviar link",
-            sva: 'Globoplay',
-            ip: '127.0.0.1'
-          }
-        )
-      }
-
-    } catch (error) {
-      console.log(error);
-      }
+        const resultLog = await handleLog(username, cleanedID, product_name, "Reenviar link", "127.0.0.1" )
+      } 
+  } catch (error) {
+    console.log(error)
+  }
 }
 
 export const handleFixitGloboPlay = async (cleanedID: string, username: string, product_name: string) => {
@@ -187,7 +198,7 @@ export const handleFixitGloboPlay = async (cleanedID: string, username: string, 
     if (resInfo.data.email === 'Por favor, verifique o email.') {
       console.log('Caiu no: EMAIL_NOT_FOUND');
       return {
-        code: 404,
+        statusCode: 404,
         message: "EMAIL_NOT_FOUND",
       };
     } else if (resInfo.status === 200) {
@@ -208,8 +219,8 @@ export const handleFixitGloboPlay = async (cleanedID: string, username: string, 
       };
 
       const resFixit = await axios.request(fixit);
-      
       const resultLog = await handleLog(username, cleanedID, product_name, "Fixit", "127.0.0.1" )
+
       return resultLog
       };
       

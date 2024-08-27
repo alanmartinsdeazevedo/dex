@@ -16,7 +16,7 @@ export const handleSearchDeezer = async (cleanedID: string) => {
       }
       const resProduct = await axios.request(product);
       if (resProduct.data.data[0]?.ProductId === 'DZ1') {
-        serviceStatus = 'active'
+        serviceStatus = 'Vinculado'
       } else if (resProduct.data.data[0]?.ProductId != 'DZ1') {
         serviceStatus = 'canceled'
       }

@@ -18,13 +18,14 @@ export const handleLog = async ( user: string, customer: string, sva: string, ac
         )
 
         await mysql.end(); //limpa conexões zoobies
-
         console.log('Log resgistrado: ', result)
-        return{code: 201}
+
+        return{statusCode: 201}
 
     }   catch (error) {
-                console.log('Erro ao registrar Log' ,error);
-            }
+        console.log('Erro ao registrar Log' ,error);
+        return {statusCode: 500}
+        }
 }
 
 
