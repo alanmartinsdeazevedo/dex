@@ -4,7 +4,7 @@ import { handleLog } from './log';
 
 const gateway = process.env.NEXT_PUBLIC_GATEWAY_URL;
 const apikey = process.env.NEXT_PUBLIC_API_KEY;
-const GloboplayID = [1, 2, 6, 7];
+const GloboplayID = [1, 2, 6, 7, 25];
 const TelecineID = [4, 10];
 const PremiereID = [3];
 
@@ -25,10 +25,10 @@ export const handleSearchGloboPlay = async (cleanedID: string) => {
       const isGPL = subscriber.services.find((service: { content_supplier_product_id: number; }) => 
         GloboplayID.includes(service.content_supplier_product_id)
         );
-        const activeService = subscriber.services.find((service: {
-          content_supplier_product_id: number; status: string; }) => 
-            (service.status === 'checkout' || service.status === 'active' || service.status === 'suspend') && GloboplayID.includes(service.content_supplier_product_id) 
-        );
+      const activeService = subscriber.services.find((service: {
+        content_supplier_product_id: number; status: string; }) => 
+          (service.status === 'checkout' || service.status === 'active' || service.status === 'suspend') && GloboplayID.includes(service.content_supplier_product_id) 
+      );
         
   
       if (activeService && isGPL) {

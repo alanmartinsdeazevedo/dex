@@ -15,7 +15,6 @@ import { authUserRole } from '@/src/app/api/auth/[...nextauth]/authUser';
 import { getNotifications } from '../app/api/auth/[...nextauth]/notifications';
 import { DarkThemeToggle, Alert } from 'flowbite-react';
 import Logo from './icons';
-import email from 'next-auth/providers/email';
 
 interface Subscriber {
   name: string;
@@ -60,7 +59,7 @@ export default function Index(){
   const userName = session?.user?.name
   const userEmail = session?.user?.email
   const userImage = session?.user?.image
-  const notifications = getNotifications('1')
+  //const notifications = getNotifications('1')
   const cleanCpf = (inputCpf: string) => {
     return inputCpf.replace(/[./-\s]/g, '')
   }
@@ -221,18 +220,7 @@ export default function Index(){
           progress: undefined,
           theme: 'light',
         });
-      } else if (status === 'canceled') {
-        toast.error('Ops! o SVA está cancelado', {
-          position: 'bottom-right',
-          autoClose: 6000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: 'light',
-        });
-      }
+      } 
     } else if (svaSelect === 'Deezer') {
       const result = await handleReenviarDeezer(cleanedID, phone ?? '', userName || '');
       if (result === 'Sent') {
@@ -240,12 +228,13 @@ export default function Index(){
       } else if (result === 'Active') {
         showErrorToast('A festa está rolando! | Já foi ativado');
       }
-    } else if (svaSelect === 'ExitLag') {
-      const result = await handleReenviarSP( email || '');
-      if (result.message === 'OK') {
-        showSuccessToast('SMS de ativação enviado!');
-      } else if (result === 'Active') {
-        showErrorToast('A festa está rolando! | Já foi ativado');
+    } else if (svaSelect === 'ExitLag' && status === 'active') {
+      const result = await handleReenviarSP( email || '', cleanedID);
+      console.log(result)
+      if (result === 'Resended') {
+        showSuccessToast('Link de ativação enviado!');
+      } else {
+        showErrorToast('Sinto uma perturbação na força 😖. Por favor, tente novamente mais tarde.');
       }
 
     } else if (svaSelect === 'App') {
@@ -256,6 +245,8 @@ export default function Index(){
       } else if (result.statusCode === 500) {
         showErrorToast('Cliente não realizou o primeiro acesso');
       }
+    } else if (status === 'suspend') {
+      showWarnToast('O SVA está cancelado ou supenso.');
     }
   };
 
@@ -299,20 +290,23 @@ export default function Index(){
   return (
     
     <>
-    <div className='h-screen dark:bg-gray-800'>
-    <nav className="bg-white border-gray-200 dark:bg-gray-900">
-      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-        <a href="#" className="flex items-center">
-          <Logo className='h-8 mr-3'/>
-          <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">Dex</span>
-        </a>
-        <form onSubmit={handleSearch}>
-        <div className="relative bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center">
-          
-        <select 
+    <nav className="block w-full max-w-screen-xl px-4 py-2 mx-auto bg-white dark:bg-gray-700 shadow-md rounded-md lg:px-8 lg:py-3 mt-4">
+      {/* Logo e User Actions ficam em uma coluna para telas pequenas */}
+      <div className="flex flex-row items-center justify-between w-full sm:w-auto sm:gap-4 mb-4 sm:mb-0">
+        {/* Logo Section */}
+        <div className="flex items-center justify-start sm:justify-start">
+          <Logo className="h-8 mr-3" />
+          <span className="text-2xl font-semibold whitespace-nowrap dark:text-white">Dex</span>
+        </div>
+
+        <div className="flex items-center min-w-96 mx-auto p-4">
+          <form onSubmit={handleSearch}>
+          <div className="flex items-center relative bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">
+            
+          <select 
             onChange={(e) => {setSvaSelect(e.target.value)}} 
             id="sva" 
-            className="p-4 pr-12 bg-transparent border-hidden text-gray-900 text-sm block w-40 md:w-auto rounded-lg border dark:bg-gray-700 dark:placeholder-gray-400 dark:text-white">
+            className="px-4 bg-transparent border-hidden text-gray-900 text-sm block md:w-auto rounded-lg border dark:bg-gray-700 dark:placeholder-gray-400 dark:text-white">
             <option value="Globoplay">Globoplay</option>
             <option value="Telecine">Telecine</option>
             <option value="Premiere">Premiere</option>
@@ -320,37 +314,39 @@ export default function Index(){
             <option value="Max">Max</option>
             <option value="ExitLag">ExitLag</option>
             <option value="App">App/Central</option>
-            <option value="Portal">Portal</option>
-            
+            <option value="Portal">Portal do Assinante</option>
           </select>
-          <input
-            value={cpf}
-            onChange={(e) => setCpf(e.target.value)}
-            type="text"
-            id="default-search"
-            className="block w-full md:w-96 p-4 pl-12 bg-transparent text-sm text-gray-900 border border-hidden border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            placeholder="Informe o CPF..."
-            required
-          />
-          <button
-            type="submit"
-            className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-          >
-            <svg className="w-4 h-4 text-white-500 dark:text-gray-100" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-              <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
-            </svg>
-          </button>
-          </div>
+            <input
+              value={cpf}
+              onChange={(e) => setCpf(e.target.value)}
+              type="text"
+              id="default-search"
+              className="block w-full p-4 pl-12 bg-transparent text-sm text-gray-900 border border-hidden border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+              placeholder="Informe o CPF..."
+              required
+            />
+            <button
+              type="submit"
+              className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            >
+              <svg className="w-4 h-4 text-white-500 dark:text-gray-100" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+              </svg>
+            </button>
+            </div>
           </form>
-          <div className='flex items-center gap-2'>
-            <Alert/>
-            <DarkThemeToggle/>
-            <Avatar/>
-          </div>
-            
       </div>
-    </nav>
 
+        {/* User Actions Section */}
+        <div className="flex items-center justify-end sm:justify-end gap-4 mt-4 sm:mt-0">
+          <Alert />
+          <DarkThemeToggle />
+          <Avatar />
+        </div>
+      </div>
+
+      {/* Search Section */}
+    </nav>
 
     <div className='flex items-center justify-center pt-20'> 
     <div className="flex items-center justify-center px-6 py-8 mx-auto h-96 lg:py-0">
@@ -475,7 +471,6 @@ export default function Index(){
     <>
     
     </>
-    </div>
     </div>
     </div>
     </>

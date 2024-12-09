@@ -3,7 +3,7 @@ import { handleLog } from "./log"
 
 const spHeaders = new Headers();
 spHeaders.append("Content-Type", "application/json");
-spHeaders.append("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.NTkzN2M5OWMtZTBkYy00N2Q4LWE1MTMtNDNhNmU0ZjA4YTdj.0Ep8-oa5yOkMd3Mrocuh7Ft7FXd6wCH3tPlv7w6rsvQ");
+spHeaders.append("Authorization", `Bearer ${process.env.SUPERPLAYER_API_KEY}`);
 
 export const handleSearchExitLag = async (cleanedID: string) => {
 
@@ -29,7 +29,7 @@ export const handleSearchExitLag = async (cleanedID: string) => {
             email: resSuperPlayer.users[0]?.email as string,
             phone: resSuperPlayer.users[0]?.phone as string,
             services: "ExitLag",
-            status: resSuperPlayer.users[0]?.status as string,
+            status: resSuperPlayer.users[0]?.status.replace('suspended','suspend') as string,
             product_id: resSuperPlayer.users[0]?.product_id as number,
             document: resSuperPlayer.users[0]?.document.value,
             statusCode: 200,
@@ -40,9 +40,11 @@ export const handleSearchExitLag = async (cleanedID: string) => {
     }
 }
 
-export const handleReenviarSP = async (email: string) => {
+export const handleReenviarSP = async (email: string, document: string) => {
     try {
+        console.log("handleReenviarSP: Iniciando reenvio de email do SuperPlayer");
         if (!email) {
+            console.log("handleReenviarSP: Email is a required parameter in handleReenviarSP");
             throw new Error("Email is a required parameter in handleReenviarSP");
         }
 
@@ -51,6 +53,7 @@ export const handleReenviarSP = async (email: string) => {
             "product": "::exitlag"
         });
 
+        console.log("handleReenviarSP: Enviando request para https://integrator.superplayer.company/5937c99c-e0dc-47d8-a513-43a6e4f08a7c/send-welcome-email");
         const resendSP = await fetch("https://integrator.superplayer.company/5937c99c-e0dc-47d8-a513-43a6e4f08a7c/send-welcome-email", {
             method: "POST",
             headers: spHeaders,
@@ -58,23 +61,31 @@ export const handleReenviarSP = async (email: string) => {
             redirect: "follow"
         });
 
+        console.log("handleReenviarSP: Resposta recebida do SuperPlayer:", resendSP.status, resendSP.statusText);
         if (!resendSP.ok) {
+            console.log("handleReenviarSP: Erro ao reenviar email do SuperPlayer:", resendSP.status, resendSP.statusText);
             throw new Error(`Erro ao reenviar email do SuperPlayer: ${resendSP.status} ${resendSP.statusText}`);
         }
 
-        const result = await resendSP.json();
-        if (!result) {
-            throw new Error("Erro ao parsear resposta do SuperPlayer");
+        const resSend = await resendSP.json();
+        console.log("handleReenviarSP: Resposta final:", resSend);
+
+        if (resSend.data.message === "OK") {
+            const resultLog = await handleLog(email, document, 'ExitLag', "Reenviar link", "127.0.0.1");
+
+            return "Resended";
+        } else {
+            return "Error";
         }
 
-        return { result };
-
     } catch (error) {
+        console.log("handleReenviarSP: Erro ao reenviar email do SuperPlayer:", error);
         return null
     }
 }
 
-export const handleFixitSP = async (cleanedID: string) => {
+
+export const handleFixitSP = async (document: string) => {
     try {
 
     } catch (error) {

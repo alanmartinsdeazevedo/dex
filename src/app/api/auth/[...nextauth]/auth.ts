@@ -9,4 +9,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       tenantId: process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID,
     }),
   ],
-})
+}) 

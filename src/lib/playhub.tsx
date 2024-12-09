@@ -237,8 +237,12 @@ export const handleFixitDeezer = async (cleanedID: string, username: string, pro
         message: "EMAIL_NOT_FOUND",
       };
     } else if (resInfo.status === 200) {
-      console.log('Refreshed');
-      const Mobile = resInfo.data.phone;
+      console.log('resInfo: ', resInfo.data);
+
+      const Name = resInfo.data.name.trim();
+      const Mobile = resInfo.data.phone.substr(3).replace('-',"")
+      const Email = resInfo.data.email.trim();
+
       const fixit = {
         method: "POST",
         url: `${gateway}/deezer/fixit/${cleanedID}`,
@@ -247,11 +251,13 @@ export const handleFixitDeezer = async (cleanedID: string, username: string, pro
         },
         data: {
           Password: cleanedID,
-          Name: resInfo.data.name,
-          Email: resInfo.data.email,
-          Mobile: resInfo.data.phone.substr(3).replace('-',""),
+          Name: Name,
+          Email: Email,
+          Mobile: Mobile,
         },
       };
+
+      console.log('fixit: ', fixit.data);
 
       const resFixit = await axios.request(fixit);
 

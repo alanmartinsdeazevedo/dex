@@ -17,7 +17,7 @@ export default function RootLayout({
         
         <title>Dex</title>
       </head>
-      <body className='min-h-screen bg-gradient-to-r from-violet-600 to-indigo-600'>
+      <body className='min-h-screen dark:bg-gray-900 bg-gradient-to-r  from-violet-600 to-indigo-600'>
       <noscript>Habilite o JavaScript do seu navegador para poder vizualizar este site.</noscript>
           <SessionProvider>
             {children}
