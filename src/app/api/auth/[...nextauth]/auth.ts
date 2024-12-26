@@ -9,5 +9,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER,
     }),
   ],
+  session: {
+    strategy: "jwt",
+    maxAge: 12 * 60 * 60,
+  },
   debug: true
 }) 

@@ -8,6 +8,29 @@ import 'react-toastify/dist/ReactToastify.css';
 import confetti from 'canvas-confetti';
 import Loading from "@/src/components/loading";
 
+const showToast = (type: "success" | "warn" | "error", message: string) => {
+  toast[type](message, {
+    position: "bottom-right",
+    autoClose: 6000,
+    hideProgressBar: false,
+    closeOnClick: true,
+    pauseOnHover: true,
+    draggable: true,
+    progress: undefined,
+    theme: "light",
+  });
+};
+
+const showConfetti = () => {
+  confetti({
+    particleCount: 250,
+    spread: 120,
+    origin: { x: 0.5, y: 0.5 },
+    decay: 0.9,
+    gravity: 0.7,
+  });
+};
+
 export default function Home() {
   const {data: session, status} = useSession()
   const router = useRouter()
@@ -21,85 +44,40 @@ export default function Home() {
     setGroup(e.target.value);
   };
 
-  const showSuccessToast = (message: string) => {
-    toast.success(message, {
-      position: "bottom-right",
-      autoClose: 6000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "light",
-    });
-  };
-
-  const showWarnToast = (message: string) => {
-    toast.warn(message, {
-      position: "bottom-right",
-      autoClose: 6000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "light",
-    });
-  };
-
-  const showErrorToast = (message: string) => {
-    toast.error(message, {
-      position: "bottom-right",
-      autoClose: 6000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "light",
-    });
-  };
   const handleAssignClick = async () => {
     try {
-      if (group != 'invite' && group != 'suspend' && group != 'remove') {
-        const result = await handleAssign(group, email);
-        if (result === 201) {
-          showSuccessToast('Usuário atribuído com sucesso!');
-          showConfetti();
-        } else if (result === 400) {
-          showWarnToast('Usuário já atribuído');
-        } else if (result === 404) {
-          setMessage('Usuário não existe no diretório.');
-        } else {
-          throw new Error('Unexpected status code');
-        }
-      } else if (group === 'invite') {
-        const result = await handleInvite(email);
-        if (result === 201) {
-          showSuccessToast('Invite enviado!');
-          showConfetti();
-        } else if (result === 400) {
-          showWarnToast('Erro ao enviar invite');
-        } else {
-          throw new Error('Unexpected status code');
-        }
-      } else if (group === 'suspend') {
-        console.log('suspend');
-        const result = await handleSuspend(email);
-        if (result === 201) {
-          showSuccessToast('Usuário desativado!');
-          showConfetti();
-        } else if (result === 400) {
-          showWarnToast('Erro ao desativar o usuário');
-        } else {
-          throw new Error('Unexpected status code');
-        }
-      } else if (group === 'remove') {
-        console.log('suspend');
-        const result = await suspendAllUsers();
+      if (!group || !email) {
+        showToast("warn", "Preencha todos os campos obrigatórios.");
+        return;
+      }
+
+      let result;
+
+      switch (group) {
+        case "invite":
+          result = await handleInvite(email);
+          break;
+        case "suspend":
+          result = await handleSuspend(email);
+          break;
+        case "remove":
+          result = await suspendAllUsers();
+          break;
+        default:
+          result = await handleAssign(group, email);
+      }
+
+      if (result === 201) {
+        showToast("success", "Operação realizada com sucesso!");
+        showConfetti();
+      } else if (result === 400) {
+        showToast("warn", "Operação não concluída. Verifique os dados.");
+      } else {
+        showToast("error", "Erro inesperado ao realizar a operação.");
       }
     } catch (error) {
-      setMessage('Ocorreu um erro');
+      console.error("Error during operation:", error);
+      showToast("error", "Ocorreu um erro. Tente novamente.");
     }
   };
   
@@ -113,24 +91,22 @@ export default function Home() {
     });
   }
 
-  if (status === 'loading') {
-    return <>
-    <Loading/>
-    </>
-  } else if (!session){
-    return (
-      router.push('/')
-   );
+  if (status === "loading") {
+    return <Loading />;
+  }
+  
+  if (!session) {
+    router.push("/");
+    return null;
   } else {
     return (
       <section>
-      
       <div className="flex items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
         <div className="w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-gray-700">
           <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
             <div>
             
-              <h1>Atribuir usuário a grupo do Jira</h1>
+              <h1 className="text-xl font-bold mb-4">Gerenciar Usuários do Jira</h1>
               <div>
                 <div className="relative bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center">
                   <select
@@ -188,7 +164,7 @@ export default function Home() {
               type="button"
               className="w-full text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center mr-2 mb-2"
             >
-              Atribuir
+              Confirmar
             </button>
           </div>
         </div>

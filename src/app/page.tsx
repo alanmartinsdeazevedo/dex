@@ -9,9 +9,7 @@ export default function Home() {
   const router = useRouter()
 
   if (status === 'loading') {
-    return <>
-    <Loading/>
-    </>
+    return <Loading/>
   }
 
   if (!session){

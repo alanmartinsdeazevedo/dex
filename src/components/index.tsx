@@ -295,7 +295,7 @@ export default function Index(){
       <div className="flex flex-row items-center justify-between w-full sm:w-auto sm:gap-4 mb-4 sm:mb-0">
         {/* Logo Section */}
         <div className="flex items-center justify-start sm:justify-start">
-          <Logo className="h-8 mr-3" />
+          <Logo className="h-8 mr-3 dark:text-white" />
           <span className="text-2xl font-semibold whitespace-nowrap dark:text-white">Dex</span>
         </div>
 
