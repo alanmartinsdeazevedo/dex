@@ -162,3 +162,30 @@ export const suspendAllUsers = async () => {
     }
   }
 };
+
+export const licenseUse = async (): Promise<number | null> => {
+  try {
+    const response = await fetch("https://alares.atlassian.net/rest/api/3/license/approximateLicenseCount/product/jira-servicedesk", {
+      method: 'GET',
+      headers: myHeaders,
+      redirect: "follow"
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+
+    if (data) {
+      return parseInt(data.value); // Retorna o número 400 como inteiro
+    } else {
+      console.error("Campo <value> não encontrado no XML.");
+      return 0; // Retorna null se não encontrar o valor
+    }
+  } catch (error) {
+    console.error("Erro ao buscar dados de licença:", error);
+    return 0; // Retorna null em caso de erro
+  }
+};

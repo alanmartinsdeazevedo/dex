@@ -2,11 +2,14 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
-import { handleAssign, handleInvite, handleSuspend, suspendAllUsers } from '@/src/lib/atlassian';
-import { useState } from "react";
+import { handleAssign, handleInvite, handleSuspend, suspendAllUsers, licenseUse } from '@/src/lib/atlassian';
+import { useEffect, useState } from "react";
 import 'react-toastify/dist/ReactToastify.css';
 import confetti from 'canvas-confetti';
 import Loading from "@/src/components/loading";
+import ReactApexChart from "react-apexcharts";
+import { ApexOptions } from "apexcharts";
+import dynamic from "next/dynamic";
 
 const showToast = (type: "success" | "warn" | "error", message: string) => {
   toast[type](message, {
@@ -37,6 +40,47 @@ export default function Home() {
   const [email, setEmail] = useState('');
   const [group, setGroup] = useState('');
   const [message, setMessage] = useState('');
+  const [licenseData, setLicenseData] = useState({ used: 0, available: 0 });
+  const ApexCharts = dynamic(() => import("react-apexcharts"), { ssr: false });
+
+
+  useEffect(() => {
+    const fetchLicenseData = async () => {
+      try {
+        const response = await licenseUse() || 0;
+        const available = 400 - response;
+        setLicenseData({ available: available, used: response });
+      } catch (error) {
+        console.error("Erro ao buscar dados de licença:", error);
+        showToast("error", "Erro ao carregar dados de licença.");
+      }
+    };
+    fetchLicenseData();
+  }, []);
+
+  const chartOptions: ApexOptions = {
+    chart: {
+      type: "donut",
+    },
+    labels: ["Licenças Disponíveis", "Licenças Consumidas",],
+    colors: ["#00d084", "#5a53f7"],
+    responsive: [
+      {
+        breakpoint: 480,
+        options: {
+          chart: {
+            width: 300,
+          },
+          legend: {
+            position: "bottom",
+          },
+        },
+      },
+    ],
+  };
+    
+
+  const chartSeries = [ licenseData.available, licenseData.used];
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
   };
@@ -157,7 +201,8 @@ export default function Home() {
                   />
                 </div>
               </div>
-              {message && <div className="text-red-600">{message}</div>}
+                {message && <div className="text-red-600">{message}</div>}
+                {/*<ReactApexChart className="mt-4" options={chartOptions} series={chartSeries} type="donut" height={350} />*/ }
             </div>
             <button
               onClick={handleAssignClick}
