@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id String @id @default(cuid())
+  name String
+  email String
+  profile_image String
+  role_id String
+  is_active Boolean
+  last_login DateTime @default(now())
+  updated_at DateTime @default(now())
+  created_at DateTime @default(now())
+}
+
+model Role {
+  id String @id @default(cuid())
+  role String
+  description String
+  created_at DateTime @default(now())
+}
+
+model Onboarding {
+  id String @id @default(cuid())
+  issue_id String
+  issue_key String
+  user_name String
+  status String
+  error_message String
+  action_user String @default("jira")
+  created_at DateTime @default(now())
+}
+
+model Offboarding {
+  id String @id @default(cuid())
+  issue_id String
+  issue_key String
+  user_name String
+  status String
+  error_message String
+  action_user String @default("jira")
+  deactivated_at DateTime @default(now())
+}
+
+model Sva {
+  id String @id @default(cuid())
+  customer String
+  sva String
+  request String
+  ip String
+  action_user String
+  requested_at DateTime @default(now())
+}
+
+model JiraGroup {
+  id String @id @default(cuid())
+  group_id String
+  group_name String
+  order Int @default(0)
+  created_at DateTime @default(now())
+}

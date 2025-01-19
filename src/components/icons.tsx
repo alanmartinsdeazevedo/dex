@@ -1,5 +1,5 @@
 import * as React from "react"
-const logo = (props: React.JSX.IntrinsicAttributes & React.SVGProps<SVGSVGElement>) => (
+const Logo = (props: React.JSX.IntrinsicAttributes & React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" {...props} fill="currentColor">
     
     <path
@@ -7,7 +7,7 @@ const logo = (props: React.JSX.IntrinsicAttributes & React.SVGProps<SVGSVGElemen
     />
   </svg>
 )
-export default logo
+export default Logo
 
 export const LoginImage = () => (
   <svg

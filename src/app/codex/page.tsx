@@ -1,13 +1,13 @@
-"use client"
+'use client'
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import { handleAssign, handleInvite, handleSuspend, suspendAllUsers, licenseUse } from '@/src/lib/atlassian';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import 'react-toastify/dist/ReactToastify.css';
 import confetti from 'canvas-confetti';
 import Loading from "@/src/components/loading";
-import ReactApexChart from "react-apexcharts";
+import Sidebar from "@/src/components/sidebar";
 import { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
 
@@ -41,23 +41,28 @@ export default function Home() {
   const [group, setGroup] = useState('');
   const [message, setMessage] = useState('');
   const [licenseData, setLicenseData] = useState({ used: 0, available: 0 });
-  const ApexCharts = dynamic(() => import("react-apexcharts"), { ssr: false });
+  const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
+  const fetchLicenseData = async () => {
+    try {
+      const response = await licenseUse() || 0;
+      const available = Math.max(0, 400 - response); 
+      setLicenseData({ available: available, used: response });
+    } catch (error) {
+      console.error("Erro ao buscar dados de licença:", error);
+      showToast("error", "Erro ao carregar dados de licença.");
+      setLicenseData({ available: 0, used: 0 });
+    }
+  };
 
   useEffect(() => {
-    const fetchLicenseData = async () => {
-      try {
-        const response = await licenseUse() || 0;
-        const available = 400 - response;
-        setLicenseData({ available: available, used: response });
-      } catch (error) {
-        console.error("Erro ao buscar dados de licença:", error);
-        showToast("error", "Erro ao carregar dados de licença.");
-      }
-    };
     fetchLicenseData();
   }, []);
 
+  const chartSeries = [
+    licenseData?.available ?? 0,
+    licenseData?.used ?? 0,
+  ];
   const chartOptions: ApexOptions = {
     chart: {
       type: "donut",
@@ -79,8 +84,6 @@ export default function Home() {
     ],
   };
     
-
-  const chartSeries = [ licenseData.available, licenseData.used];
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
   };
@@ -144,6 +147,12 @@ export default function Home() {
     return null;
   } else {
     return (
+      <>
+      <div className="flex">
+        <div className="fixed p-6 h-screen">
+        {/* <Sidebar />   */}
+      </div>
+      <main className="flex-1 ml-64 p-6">
       <section>
       <div className="flex items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
         <div className="w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-gray-700">
@@ -164,6 +173,7 @@ export default function Home() {
                     <option value='suspend'>Desativar usuário</option>
                     <option value='invite'>Adicionar ao diretorio</option>
                     <option value='6043a622-a670-4dc5-abef-60c6d9340976'>BS</option>
+                    <option value='aac2baad-453f-484c-8bef-3fa10d6b4970'>CONT</option>
                     <option value='cf56d3f2-362c-4648-afc9-6fe9edf162f9'>DE</option>
                     <option value='3d517ec3-9e59-458d-912d-1ce49e7fcba5'>ENGT</option>
                     <option value='be0af1c1-0dac-49ac-8991-c4cf6bc33f63'>FAC</option>
@@ -201,8 +211,20 @@ export default function Home() {
                   />
                 </div>
               </div>
-                {message && <div className="text-red-600">{message}</div>}
-                {/*<ReactApexChart className="mt-4" options={chartOptions} series={chartSeries} type="donut" height={350} />*/ }
+              {message && <div className="text-red-600">{message}</div>}
+              {chartSeries.every(series => typeof series === "number") ? (
+              <Chart
+                className="mt-4"
+                options={chartOptions}
+                series={chartSeries}
+                type="donut"
+                width={"100%"}
+                height={150}
+              />
+              ) : (
+                <div className="text-red-600">Erro ao carregar o gráfico.</div>
+              )}
+
             </div>
             <button
               onClick={handleAssignClick}
@@ -215,7 +237,10 @@ export default function Home() {
         </div>
       </div>
       <ToastContainer limit={4} />
-    </section>
+          </section>
+          </main>
+        </div>
+        </>
     )
   }
 }
