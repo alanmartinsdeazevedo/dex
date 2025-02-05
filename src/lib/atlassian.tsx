@@ -10,7 +10,63 @@
   codexHeaders.append("Authorization", "Bearer ATCTT3xFfGN0Q82CRla25iwBKkxCr_ezjciWjHKExZf-aeGu27kSWIw0uXUVt8DEv4G8CSt5APEFZ2uur0aEAoNYYGXSikdi_RyVz4IwgjElzS1d5dEK5XyHFjfmHmP7hgNf4Ulsimr4QugVLb7myoHeLRPYua4U572yNXnC36bnoU9wcT7Isk0=9C7AB7E4");
 
   const usersSuspended = [
-    "kXt7S@example.com",]
+  "kXt7S@example.com",]
+
+  async function getUserGroups(groupId: string) {
+    try {
+      const response = await fetch(`https://alares.atlassian.net/rest/api/3/user/groups?accountId=${groupId}`, {
+        method: "GET",
+        headers: myHeaders,
+      });
+  
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar grupos: ${response.statusText}`);
+      }
+  
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Erro:", error);
+      return null;
+    }
+  }
+  
+    
+  export const searchUser = async (email: string) => {
+    try {
+      const getUser = await fetch(`https://alares.atlassian.net/rest/api/3/user/search?query=${email}`, {
+        method: 'GET',
+        headers: myHeaders,
+      });
+  
+      if (!getUser.ok) {
+        throw new Error(`HTTP error! status: ${getUser.status}`);
+      }
+  
+      const userData = await getUser.json();
+      const atlassianUser = userData.find((user: { accountType: string; }) => user.accountType === "atlassian")?.accountId;
+      const accountId = atlassianUser ? atlassianUser : userData[0]?.accountId;
+  
+      if (!accountId) {
+        return 404;
+      }
+  
+      const groups = await getUserGroups(accountId);
+  
+      const returnData = {
+        user: userData[0],
+        groups: groups,
+      };
+  
+      console.log("User and Groups: ", returnData);
+  
+      return returnData;
+  
+    } catch (erro) {
+      console.log(erro);
+      return 404;
+    }
+  }
   
 export const handleAssign = async (groupId: string, email: string) => {
 

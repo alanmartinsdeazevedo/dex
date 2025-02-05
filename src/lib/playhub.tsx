@@ -49,7 +49,7 @@ export const handleSearchMax = async (cleanedID: string) => {
       const cleanedResult = {
         name: response.data.data.Name,
         document: response.data.data.Document,
-        phone: "+55"+response.data.data.Mobile ?? '',
+        phone: "+55"+response.data.data.Mobile,
         email: cleanedEmail,
         services: services,
         product_id: 0,
