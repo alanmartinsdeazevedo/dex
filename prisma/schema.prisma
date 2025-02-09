@@ -68,6 +68,7 @@ model JiraGroup {
   id String @id @default(cuid())
   group_id String
   group_name String
+  description String
   order Int @default(0)
   created_at DateTime @default(now())
 }

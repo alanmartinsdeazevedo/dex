@@ -18,7 +18,7 @@ export const authUserRole = async (
   userName: string,
   userImage: string
   ) => {
-
+  return
   const connection = await mysql.createConnection(dbConfig);
 
   try {
