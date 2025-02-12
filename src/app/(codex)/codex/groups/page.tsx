@@ -41,7 +41,7 @@ export default function GroupsPage() {
 
     const fetchGroupUsers = async (groupId: string, startAt: number = 0) => {
       try {
-        const data = await fetchGroupUsersFromAPI(groupId, startAt); // Remova o terceiro argumento aqui
+        const data = await fetchGroupUsersFromAPI(groupId, startAt); 
         setGroupUsers(data.values); // Atualiza a lista de usuários
         setSelectedGroup(groups.find((group) => group.groupId === groupId)); // Define o grupo selecionado
         setPagination({
@@ -62,7 +62,6 @@ export default function GroupsPage() {
       try {
         const fetchedGroups = await fetchAllGroups();
         setGroups(fetchedGroups);
-        console.log("Groups: ", fetchedGroups);
       } catch (error) {
         console.error("Erro ao buscar grupos:", error);
         showToast("error", "Erro ao carregar grupos.");
@@ -79,9 +78,11 @@ export default function GroupsPage() {
     }
     try {
       const createdGroup = await createGroup(newGroupName);
-      setGroups([...groups, createdGroup]);
+      // setGroups([...groups, createdGroup]);
       setNewGroupName('');
       showToast("success", "Grupo criado com sucesso!");
+      const fetchedGroups = await fetchAllGroups();
+      setGroups(fetchedGroups);
     } catch (error) {
       console.error("Erro ao criar grupo:", error);
       showToast("error", "Erro ao criar grupo.");

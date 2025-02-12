@@ -70,7 +70,7 @@ export default function Home() {
   const fetchLicenseData = async () => {
     try {
       const response = await licenseUse() || 0;
-      const available = Math.max(0, 400 - response); 
+      const available = Math.max(0, 500 - response); 
       setLicenseData({ available: available, used: response });
     } catch (error) {
       console.error("Erro ao buscar dados de licença:", error);

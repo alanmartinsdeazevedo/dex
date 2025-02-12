@@ -1,20 +1,26 @@
-import { useRouter } from "next/router";
+'use client';
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchGroupUsers } from "@/src/lib/atlassian";
 
 export default function GroupDetailsPage() {
-  const router = useRouter();
-  const { groupId } = router.query;
+  const pathname = usePathname();
+  const groupId = pathname.split("/").pop();
   const [groupUsers, setGroupUsers] = useState<any[]>([]);
   const [pagination, setPagination] = useState({
     startAt: 0,
-    maxResults: 10,
+    maxResults: 7,
     total: 0,
     isLast: false,
   });
 
   useEffect(() => {
+    console.log("Teste: ",pathname)
+    console.log("entrei no useEffect", groupId);
     if (!groupId) return;
+
+    console.log("groupId:", groupId);
+    console.log("pagination:", pagination);
 
     const loadGroupUsers = async () => {
       try {
@@ -27,12 +33,12 @@ export default function GroupDetailsPage() {
           isLast: data.isLast,
         });
       } catch (error) {
-        console.error("Erro ao buscar usuários do grupo:", error);
+        console.error("Erro ao buscar usu rios do grupo:", error);
       }
     };
 
     loadGroupUsers();
-  }, [groupId, pagination.startAt]);
+  }, [groupId, pagination.startAt, pagination.maxResults]);
 
   const handleNextPage = () => {
     if (!pagination.isLast) {

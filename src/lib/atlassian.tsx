@@ -258,6 +258,7 @@ export const fetchAllGroups = async (): Promise<any[]> => {
     }
 
     const data = await response.json();
+    
     return data.values; // Assuming the API returns an array of groups in the 'values' field
   } catch (error) {
     console.error("Erro ao buscar grupos:", error);
@@ -265,8 +266,21 @@ export const fetchAllGroups = async (): Promise<any[]> => {
   }
 };
 
+
 export const createGroup = async (name: string): Promise<any> => {
-  // Chamar API do Jira para criar um novo grupo
+  const response = await fetch("https://alares.atlassian.net/rest/api/3/group", {
+    method: 'POST',
+    headers: myHeaders,
+    body: JSON.stringify({
+      "name": name,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Erro ao criar grupo: ${response.statusText}`);
+  }
+
+  return
 };
 
 export const deleteGroup = async (groupId: string): Promise<void> => {
