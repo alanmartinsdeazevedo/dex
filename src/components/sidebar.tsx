@@ -87,12 +87,12 @@ export default function Sidebar() {
                     Grupos
                     </div>
                     <div role="button"
-                    onClick={() => router.push('codex/add-user')}
+                    onClick={() => router.push('/codex/users')}
                     className="flex items-center w-full p-3 leading-tight transition-all rounded-lg outline-none text-start hover:bg-blue-gray-50 hover:bg-opacity-80 hover:text-blue-gray-900 focus:bg-blue-gray-50 focus:bg-opacity-80 focus:text-blue-gray-900 active:bg-blue-gray-50 active:bg-opacity-80 active:text-blue-gray-900">
                     <div className="grid mr-4 place-items-center">
                     <Icon icon="mingcute:right-small-line" width="24" height="24" />
                     </div>
-                    Adicionar Usuário
+                    Usuários
                     </div>
                 </nav>
                 </div>

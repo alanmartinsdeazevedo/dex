@@ -245,3 +245,76 @@ export const licenseUse = async (): Promise<number | null> => {
     return 0; // Retorna null em caso de erro
   }
 };
+
+export const fetchAllGroups = async (): Promise<any[]> => {
+  try {
+    const response = await fetch("https://alares.atlassian.net/rest/api/3/group/bulk", {
+      method: 'GET',
+      headers: myHeaders,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.values; // Assuming the API returns an array of groups in the 'values' field
+  } catch (error) {
+    console.error("Erro ao buscar grupos:", error);
+    return [];
+  }
+};
+
+export const createGroup = async (name: string): Promise<any> => {
+  // Chamar API do Jira para criar um novo grupo
+};
+
+export const deleteGroup = async (groupId: string): Promise<void> => {
+  const response = await fetch(`https://alares.atlassian.net/rest/api/3/group?groupId=${groupId}`, {
+    method: 'DELETE',
+    headers: myHeaders,
+  });
+  console.log("ID: ", groupId);
+  console.log("Res Delete: ", response);
+
+  if (!response.ok) {
+    throw new Error(`Erro ao deletar grupo: ${response.statusText}`);
+  }
+
+  return;
+};
+
+export const updateGroup = async (groupId: string, newName: string): Promise<any> => {
+  // Chamar API do Jira para atualizar o nome de um grupo
+};
+
+export const fetchGroupUsers = async (groupId: string, startAt: number = 0, maxResults: number = 10) => {
+  console.log("ID: ", groupId);
+  console.log("StartAt: ", startAt);
+
+    try {
+      const response = await fetch(`https://alares.atlassian.net/rest/api/3/group/member?groupId=${groupId}&startAt=${startAt}&maxResults=${maxResults}`, {
+        method: "GET",
+        headers: myHeaders,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar usuários do grupo: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("UsersGroup: ", data.values);
+
+      return data;
+
+    } catch (error) {
+      console.error("Erro ao buscar usuários do grupo:", error);
+      return {
+        values: [],
+        startAt: 0,
+        maxResults: 0,
+        total: 0,
+        isLast: true,
+      };
+    }
+};

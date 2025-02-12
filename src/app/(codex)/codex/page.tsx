@@ -136,7 +136,6 @@ export default function Home() {
       bar: {
         horizontal: false,
         columnWidth: "55%",
-        endingShape: "rounded",
       },
     },
     dataLabels: {
@@ -221,7 +220,7 @@ export default function Home() {
   } else {
     return (
       <>
-      <div className="flex flex-col items-center px-6 py-8 mx-auto gap-4 md:h-screen lg:py-0">
+      <div className="flex flex-col items-center py-8 mx-auto gap-4 md:h-screen lg:py-0">
         {/* Gráficos Lado a Lado */}
         <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Gráfico de Licenças */}
