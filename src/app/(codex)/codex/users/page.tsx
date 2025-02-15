@@ -10,7 +10,7 @@ import Loading from "@/src/components/loading";
 import { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
 import Image from 'next/image';
-import { Group, GroupList, GroupUser } from "@/src/types/group";
+import { Group, GroupSelectList, GroupUser } from "@/src/types/group";
 import { Icon } from "@iconify/react/dist/iconify.js";
 
 const showToast = (type: "success" | "warn" | "error", message: string) => {
@@ -65,118 +65,33 @@ export default function Home() {
   const router = useRouter()
   const [search, setSearch] = useState<UserData | null>();
   const [email, setEmail] = useState('');
-  const [groups, setGroups] = useState<GroupList[]>([]);
+  const [groups, setGroups] = useState<GroupSelectList[]>([]);
   const [userGroups, setUserGroups] = useState<GroupData[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [licenseData, setLicenseData] = useState({ used: 0, available: 0 });
   const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-  const groupList: GroupList[] = [
-    {
-      id: "1",
-      groupId: "db32e550-152b-4ce2-abbf-b4bd98a6844a",
-      groupName: "Públicos",
-      description: "em desenvolvimento",
-      order: 1,
-      createdAt: "2024-01-01T12:00:00Z"
-    },
-    {
-      id: "2",
-      groupId: "9cdfaec0-4bdb-4b75-ac9a-1189efcb6993",
-      groupName: "Aprovadores",
-      description: "em desenvolvimento",
-      order: 2,
-      createdAt: "2024-01-02T12:00:00Z"
-    },
-    {
-      id: "3",
-      groupId: "6043a622-a670-4dc5-abef-60c6d9340976",
-      groupName: "BS",
-      description: "em desenvolvimento",
-      order: 3,
-      createdAt: "2024-01-03T12:00:00Z"
-    },
-    {
-      id: "4",
-      groupId: "aac2baad-453f-484c-8bef-3fa10d6b4970",
-      groupName: "CONT",
-      description: "em desenvolvimento",
-      order: 4,
-      createdAt: "2024-01-04T12:00:00Z"
-    },
-    {
-      id: "5",
-      groupId: "cf56d3f2-362c-4648-afc9-6fe9edf162f9",
-      groupName: "DE",
-      description: "em desenvolvimento",
-      order: 5,
-      createdAt: "2024-01-05T12:00:00Z"
-    },
-    {
-      id: "6",
-      groupId: "3d517ec3-9e59-458d-912d-1ce49e7fcba5",
-      groupName: "ENGT",
-      description: "em desenvolvimento",
-      order: 6,
-      createdAt: "2024-01-06T12:00:00Z"
-    },
-    {
-      id: "7",
-      groupId: "be0af1c1-0dac-49ac-8991-c4cf6bc33f63",
-      groupName: "FAC",
-      description: "em desenvolvimento",
-      order: 7,
-      createdAt: "2024-01-07T12:00:00Z"
-    },
-    {
-      id: "8",
-      groupId: "060c2d66-f5eb-429a-94eb-cf19448a11ea",
-      groupName: "FEF",
-      description: "em desenvolvimento",
-      order: 8,
-      createdAt: "2024-01-08T12:00:00Z"
-    },
-    {
-      id: "9",
-      groupId: "949d710e-a9af-4bf4-adb6-98bfff14e097",
-      groupName: "FIN",
-      description: "em desenvolvimento",
-      order: 9,
-      createdAt: "2024-01-09T12:00:00Z"
-    },
-    {
-      id: "10",
-      groupId: "f9a853f3-8e3a-44be-ae4e-7b316b9e0239",
-      groupName: "GDD",
-      description: "em desenvolvimento",
-      order: 10,
-      createdAt: "2024-01-10T12:00:00Z"
-    },
-    {
-      id: "11",
-      groupId: "da05199e-d62c-4342-9b9b-9e497f860ad2",
-      groupName: "GMUD",
-      description: "em desenvolvimento",
-      order: 11,
-      createdAt: "2024-01-11T12:00:00Z"
-    },
-    {
-      id: "12",
-      groupId: "cf86d3cf-fdf3-4a00-a769-3e7d40000610",
-      groupName: "GMUDT",
-      description: "em desenvolvimento",
-      order: 12,
-      createdAt: "2024-01-12T12:00:00Z"
-    },
-    {
-      id: "13",
-      groupId: "aa826844-690a-4a34-b47c-0d6b110d9c52",
-      groupName: "RUIET Resolvedor",
-      description: "em desenvolvimento",
-      order: 13,
-      createdAt: "2024-01-13T12:00:00Z"
-    }
+  const groupList: GroupSelectList[] = [
+    {"id": "1", "groupId": "db32e550-152b-4ce2-abbf-b4bd98a6844a", "groupName": "Públicos", "description": "em desenvolvimento", "order": 1, "createdAt": "2024-01-01T12:00:00Z"},
+    {"id": "2", "groupId": "9cdfaec0-4bdb-4b75-ac9a-1189efcb6993", "groupName": "Aprovadores", "description": "em desenvolvimento", "order": 2, "createdAt": "2024-01-02T12:00:00Z"},
+    {"id": "3", "groupId": "6043a622-a670-4dc5-abef-60c6d9340976", "groupName": "BS", "description": "em desenvolvimento", "order": 3, "createdAt": "2024-01-03T12:00:00Z"},
+    {"id": "4", "groupId": "aac2baad-453f-484c-8bef-3fa10d6b4970", "groupName": "CONT", "description": "em desenvolvimento", "order": 4, "createdAt": "2024-01-04T12:00:00Z"},
+    {"id": "5", "groupId": "cf56d3f2-362c-4648-afc9-6fe9edf162f9", "groupName": "DE", "description": "em desenvolvimento", "order": 5, "createdAt": "2024-01-05T12:00:00Z"},
+    {"id": "6", "groupId": "3d517ec3-9e59-458d-912d-1ce49e7fcba5", "groupName": "ENGT", "description": "em desenvolvimento", "order": 6, "createdAt": "2024-01-06T12:00:00Z"},
+    {"id": "7", "groupId": "be0af1c1-0dac-49ac-8991-c4cf6bc33f63", "groupName": "FAC", "description": "em desenvolvimento", "order": 7, "createdAt": "2024-01-07T12:00:00Z"},
+    {"id": "8", "groupId": "060c2d66-f5eb-429a-94eb-cf19448a11ea", "groupName": "FEF", "description": "em desenvolvimento", "order": 8, "createdAt": "2024-01-08T12:00:00Z"},
+    {"id": "9", "groupId": "949d710e-a9af-4bf4-adb6-98bfff14e097", "groupName": "FIN", "description": "em desenvolvimento", "order": 9, "createdAt": "2024-01-09T12:00:00Z"},
+    {"id": "10", "groupId": "f9a853f3-8e3a-44be-ae4e-7b316b9e0239", "groupName": "GDD", "description": "em desenvolvimento", "order": 10, "createdAt": "2024-01-10T12:00:00Z"},
+    {"id": "11", "groupId": "da05199e-d62c-4342-9b9b-9e497f860ad2", "groupName": "GMUD", "description": "em desenvolvimento", "order": 11, "createdAt": "2024-01-11T12:00:00Z"},
+    {"id": "12", "groupId": "cf86d3cf-fdf3-4a00-a769-3e7d40000610", "groupName": "GMUDT", "description": "em desenvolvimento", "order": 12, "createdAt": "2024-01-12T12:00:00Z"},
+    {"id": "13", "groupId": "55383512-5870-4c97-b0a0-4bc7b1a334a7", "groupName": "GSOP", "description": "em desenvolvimento", "order": 13, "createdAt": "2024-01-13T12:00:00Z"},
+    {"id": "14", "groupId": "5eef44e5-533e-452d-8afd-9ab8d7a0a207", "groupName": "GSTI", "description": "em desenvolvimento", "order": 14, "createdAt": "2024-01-14T12:00:00Z"},
+    {"id": "15", "groupId": "e14a1076-e7b7-440a-8114-1f478167bc98", "groupName": "MEEF", "description": "em desenvolvimento", "order": 15, "createdAt": "2024-01-15T12:00:00Z"},
+    {"id": "16", "groupId": "b6b03ceb-0029-4849-b6b6-3d934d21c88c", "groupName": "RUIET", "description": "em desenvolvimento", "order": 16, "createdAt": "2024-01-16T12:00:00Z"},
+    {"id": "17", "groupId": "aa826844-690a-4a34-b47c-0d6b110d9c52", "groupName": "RUIET Resolvedor", "description": "em desenvolvimento", "order": 17, "createdAt": "2024-01-17T12:00:00Z"},
+    {"id": "18", "groupId": "16c83fec-ab80-4fba-8053-8cab7e84270c", "groupName": "RHB Resolvedor", "description": "em desenvolvimento", "order": 18, "createdAt": "2024-01-18T12:00:00Z"},
+    {"id": "19", "groupId": "69b4239b-7473-4cec-97b8-f6469fce5f51", "groupName": "RHS Resolvedor", "description": "em desenvolvimento", "order": 19, "createdAt": "2024-01-19T12:00:00Z"}
   ];
 
   const fetchLicenseData = async () => {
@@ -343,7 +258,7 @@ export default function Home() {
       </nav>
       {/* Search Section */}
       {search && (
-          <div className="flex w-full min-w-96 bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:max-w-full dark:bg-gray-800 dark:border-gray-700">
+          <div className="flex w-full min-w-96 bg-white rounded-lg shadow dark:border md:mt-0 xl:max-w-full dark:bg-gray-800 dark:border-gray-700">
             <div className="w-full p-6 space-y-4 md:space-y-6 sm:p-8">
               {/* Dados do Usuário Jira */}
               <div className="flex flex-row items-center mb-6">
@@ -356,8 +271,8 @@ export default function Home() {
                 />
                 <div className="ml-4">
                   <h1 className="text-xl font-bold">{search.displayName}</h1>
-                  <p className="text-gray-700">{search.emailAddress}</p>
-                  <p className="text-gray-700">Status: {search.active ? "Ativo" : "Inativo"}</p>
+                  <p className="text-gray-700 dark:text-gray-300">{search.emailAddress}</p>
+                  <p className="text-gray-700 dark:text-gray-300">Status: {search.active ? "Ativo" : "Inativo"}</p>
                 </div>
                 <div className="ml-auto">
                   <button

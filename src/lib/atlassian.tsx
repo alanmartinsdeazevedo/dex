@@ -1,20 +1,21 @@
-"use server"
+'use server';
+import { GroupList } from "@/src/types/group";
 
   const myHeaders = new Headers();
   myHeaders.append("Content-Type", "application/json");
   myHeaders.append("Accept", "application/json");
-  myHeaders.append("Authorization", "Basic YWxhbi5hemV2ZWRvQGFsYXJlc2ludGVybmV0LmNvbS5icjpBVEFUVDN4RmZHRjA5bk1FVFdhOHlXOXd4TVVqTU5seHRUV1pGQWk5M0lBQVp4ZVNJai0yTjAtdGhPZnFQVnk2Z2cyTGt6dk1HN2NsRnB3LVFiczd2SWZpTWZ2Smp0OEZBdTJBT0hxempqbGhvTUV4SU5JQkhBYmNYakwwckh6X2xxdFVmcFd1aFVoYURwVzFXTmtsOHRWcWh4OC1WdnZvS1dtZjhtSEV5QkVNZFhvS1EwOEpDbVk9OEVDN0MwM0U=");
+  myHeaders.append("Authorization", `Basic ${process.env.ATLASSIAN_TOKEN}`);
 
   const codexHeaders = new Headers();
   codexHeaders.append("Accept", "application/json");
-  codexHeaders.append("Authorization", "Bearer ATCTT3xFfGN0Q82CRla25iwBKkxCr_ezjciWjHKExZf-aeGu27kSWIw0uXUVt8DEv4G8CSt5APEFZ2uur0aEAoNYYGXSikdi_RyVz4IwgjElzS1d5dEK5XyHFjfmHmP7hgNf4Ulsimr4QugVLb7myoHeLRPYua4U572yNXnC36bnoU9wcT7Isk0=9C7AB7E4");
+  codexHeaders.append("Authorization", `Bearer ATCTT3xFfGN0Q82CRla25iwBKkxCr_ezjciWjHKExZf-aeGu27kSWIw0uXUVt8DEv4G8CSt5APEFZ2uur0aEAoNYYGXSikdi_RyVz4IwgjElzS1d5dEK5XyHFjfmHmP7hgNf4Ulsimr4QugVLb7myoHeLRPYua4U572yNXnC36bnoU9wcT7Isk0=9C7AB7E4`);
 
   const usersSuspended = [
-  "kXt7S@example.com",]
+    "X0l9K@example.com",]
 
   async function getUserGroups(groupId: string) {
     try {
-      const response = await fetch(`https://alares.atlassian.net/rest/api/3/user/groups?accountId=${groupId}`, {
+      const response = await fetch(`${process.env.ATLASSIAN_URL}/3/user/groups?accountId=${groupId}`, {
         method: "GET",
         headers: myHeaders,
       });
@@ -34,7 +35,7 @@
     
   export const searchUser = async (email: string) => {
     try {
-      const getUser = await fetch(`https://alares.atlassian.net/rest/api/3/user/search?query=${email}`, {
+      const getUser = await fetch(`${process.env.ATLASSIAN_URL}/3/user/search?query=${email}`, {
         method: 'GET',
         headers: myHeaders,
       });
@@ -71,7 +72,7 @@
 export const handleAssign = async (groupId: string, email: string) => {
 
   try {
-    const getUser = await fetch(`https://alares.atlassian.net/rest/api/3/user/search?query=${email}`, {
+    const getUser = await fetch(`${process.env.ATLASSIAN_URL}/3/user/search?query=${email}`, {
       method: 'GET',
       headers: myHeaders,
     });
@@ -102,14 +103,14 @@ export const handleAssign = async (groupId: string, email: string) => {
       redirect: "follow"
     };
 
-    const addDefault = await fetch(`https://alares.atlassian.net/rest/api/3/group/user?groupId=db32e550-152b-4ce2-abbf-b4bd98a6844a`, {
+    const addDefault = await fetch(`${process.env.ATLASSIAN_URL}/3/group/user?groupId=db32e550-152b-4ce2-abbf-b4bd98a6844a`, {
       method: 'POST',
       headers: myHeaders,
       body: rawGroup,
       redirect: "follow"
     });
 
-    const addGroup = await fetch(`https://alares.atlassian.net/rest/api/3/group/user?groupId=${groupId}`, {
+    const addGroup = await fetch(`${process.env.ATLASSIAN_URL}/3/group/user?groupId=${groupId}`, {
       method: 'POST',
       headers: myHeaders,
       body: rawGroup,
@@ -144,7 +145,7 @@ export const handleAssign = async (groupId: string, email: string) => {
 export const handleInvite = async (email: string) => {
   try {
     console.log("Email: ", email);
-    const sendInvite = await fetch("https://alares.atlassian.net/rest/api/3/user", {
+    const sendInvite = await fetch("${process.env.ATLASSIAN_URL}/3/user", {
       method: 'POST',
       headers: myHeaders,
       body: JSON.stringify({
@@ -168,7 +169,7 @@ export const handleSuspend = async (email: string) => {
 
   try {
     console.log(`Iniciando suspensão para: ${email}`);
-    const getUser = await fetch(`https://alares.atlassian.net/rest/api/3/user/search?query=${email}`, {
+    const getUser = await fetch(`${process.env.ATLASSIAN_URL}/3/user/search?query=${email}`, {
       method: 'GET',
       headers: myHeaders,
     });
@@ -221,7 +222,7 @@ export const suspendAllUsers = async () => {
 
 export const licenseUse = async (): Promise<number | null> => {
   try {
-    const response = await fetch("https://alares.atlassian.net/rest/api/3/license/approximateLicenseCount/product/jira-servicedesk", {
+    const response = await fetch("${process.env.ATLASSIAN_URL}/3/license/approximateLicenseCount/product/jira-servicedesk", {
       method: 'GET',
       headers: myHeaders,
       redirect: "follow"
@@ -246,9 +247,9 @@ export const licenseUse = async (): Promise<number | null> => {
   }
 };
 
-export const fetchAllGroups = async (): Promise<any[]> => {
+export const fetchAllGroups = async (startAt: number = 0, maxResults: number = 10): Promise<GroupList> => {
   try {
-    const response = await fetch("https://alares.atlassian.net/rest/api/3/group/bulk", {
+    const response = await fetch(`${process.env.ATLASSIAN_URL}/3/group/bulk?startAt=${startAt}&maxResults=${maxResults}`, {
       method: 'GET',
       headers: myHeaders,
     });
@@ -258,17 +259,23 @@ export const fetchAllGroups = async (): Promise<any[]> => {
     }
 
     const data = await response.json();
-    
-    return data.values; // Assuming the API returns an array of groups in the 'values' field
+    console.log("fetchAllGroups: ", data.values);
+
+    return {
+      values: data.values ?? [],
+      startAt: data.startAt ?? 0,
+      maxResults: data.maxResults ?? 10,
+      total: data.total ?? 0,
+      isLast: data.isLast ?? true,
+    };
   } catch (error) {
     console.error("Erro ao buscar grupos:", error);
-    return [];
+    return { values: [], startAt, maxResults, total: 0, isLast: true };
   }
 };
 
-
 export const createGroup = async (name: string): Promise<any> => {
-  const response = await fetch("https://alares.atlassian.net/rest/api/3/group", {
+  const response = await fetch("${process.env.ATLASSIAN_URL}/3/group", {
     method: 'POST',
     headers: myHeaders,
     body: JSON.stringify({
@@ -284,7 +291,7 @@ export const createGroup = async (name: string): Promise<any> => {
 };
 
 export const deleteGroup = async (groupId: string): Promise<void> => {
-  const response = await fetch(`https://alares.atlassian.net/rest/api/3/group?groupId=${groupId}`, {
+  const response = await fetch(`${process.env.ATLASSIAN_URL}/3/group?groupId=${groupId}`, {
     method: 'DELETE',
     headers: myHeaders,
   });
@@ -303,11 +310,9 @@ export const updateGroup = async (groupId: string, newName: string): Promise<any
 };
 
 export const fetchGroupUsers = async (groupId: string, startAt: number = 0, maxResults: number = 10) => {
-  console.log("ID: ", groupId);
-  console.log("StartAt: ", startAt);
 
     try {
-      const response = await fetch(`https://alares.atlassian.net/rest/api/3/group/member?groupId=${groupId}&startAt=${startAt}&maxResults=${maxResults}`, {
+      const response = await fetch(`${process.env.ATLASSIAN_URL}/3/group/member?groupId=${groupId}&startAt=${startAt}&maxResults=${maxResults}`, {
         method: "GET",
         headers: myHeaders,
       });

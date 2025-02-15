@@ -2,6 +2,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchGroupUsers } from "@/src/lib/atlassian";
+import { Icon } from "@iconify/react/dist/iconify.js";
 
 export default function GroupDetailsPage() {
   const pathname = usePathname();
@@ -38,7 +39,7 @@ export default function GroupDetailsPage() {
     };
 
     loadGroupUsers();
-  }, [groupId, pagination.startAt, pagination.maxResults]);
+  }, [groupId, pagination.startAt, pagination.maxResults, pathname]);
 
   const handleNextPage = () => {
     if (!pagination.isLast) {
@@ -81,20 +82,20 @@ export default function GroupDetailsPage() {
         </div>
 
         {/* Botões de paginação */}
-        <div className="flex justify-between mt-4">
+        <div className="flex justify-center mt-4 gap-4">
           <button
             onClick={handlePreviousPage}
             disabled={pagination.startAt === 0}
             className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400"
           >
-            Anterior
+            <Icon icon="ooui:next-rtl" width="20" height="20" />
           </button>
           <button
             onClick={handleNextPage}
             disabled={pagination.isLast}
             className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400"
           >
-            Próximo
+            <Icon icon="ooui:next-ltr" width="20" height="20" />
           </button>
         </div>
       </div>

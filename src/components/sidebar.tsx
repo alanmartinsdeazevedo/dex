@@ -1,5 +1,6 @@
 import Logo from './icons';
 import { useRouter } from 'next/navigation';
+import { DarkThemeToggle, Alert } from 'flowbite-react';
 import { Icon } from "@iconify/react";;
   
 export default function Sidebar() {
@@ -8,7 +9,7 @@ export default function Sidebar() {
     return (
         <>
         <div
-        className="relative flex h-full w-full max-w-[20rem] flex-col rounded-xl bg-white bg-clip-border p-4 text-gray-700 shadow-xl shadow-blue-gray-900/5">
+        className="relative flex h-full w-full max-w-[20rem] flex-col rounded-xl bg-white dark:bg-gray-800 dark:text-gray-100 bg-clip-border p-4 text-gray-700 shadow-xl shadow-blue-gray-900/5">
         <div className="flex items-center gap-4 p-4 mb-2">
             <Logo className="h-8 mr-3 dark:text-white" />
             <span className="text-2xl font-semibold whitespace-nowrap dark:text-white">Codex</span>
@@ -42,7 +43,7 @@ export default function Sidebar() {
                 </button>
             </div>
             <div className="overflow-hidden">
-                <div className="block w-full py-1 font-sans text-sm antialiased font-light leading-normal text-gray-700">
+                <div className="block w-full py-1 font-sans text-sm antialiased font-light leading-normal text-gray-700 dark:text-gray-100">
                 <nav className="flex min-w-[240px] flex-col gap-1 p-0 font-sans text-base font-normal text-blue-gray-700">
                     <div role="button"
                     className="flex items-center w-full p-3 leading-tight transition-all rounded-lg outline-none text-start hover:bg-blue-gray-50 hover:bg-opacity-80 hover:text-blue-gray-900 focus:bg-blue-gray-50 focus:bg-opacity-80 focus:text-blue-gray-900 active:bg-blue-gray-50 active:bg-opacity-80 active:text-blue-gray-900">
@@ -76,7 +77,7 @@ export default function Sidebar() {
                 </button>
             </div>
             <div className="overflow-hidden">
-                <div className="block w-full py-1 font-sans text-sm antialiased font-light leading-normal text-gray-700">
+                <div className="block w-full py-1 font-sans text-sm antialiased font-light leading-normal text-gray-700 dark:text-gray-100">
                 <nav className="flex min-w-[240px] flex-col gap-1 p-0 font-sans text-base font-normal text-blue-gray-700">
                     <div role="button"
                     onClick={() => router.push('/codex/groups')}
@@ -120,6 +121,7 @@ export default function Sidebar() {
             </div>
             Sair
             </div>
+            <DarkThemeToggle />
         </nav>
         </div>
         </>

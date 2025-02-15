@@ -3,10 +3,9 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import { useEffect, useState } from "react";
+import { Group, GroupList, GroupValues } from "@/src/types/group";
 import 'react-toastify/dist/ReactToastify.css';
-import confetti from 'canvas-confetti';
 import Loading from "@/src/components/loading";
-import Link from 'next/link';
 import { fetchAllGroups, fetchGroupUsers as fetchGroupUsersFromAPI, createGroup, deleteGroup, updateGroup } from '@/src/lib/atlassian';
 import { Icon } from "@iconify/react/dist/iconify.js";
 
@@ -26,49 +25,38 @@ const showToast = (type: "success" | "warn" | "error", message: string) => {
 export default function GroupsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [groups, setGroups] = useState<any[]>([]);
+  const [groups, setGroups] = useState<GroupValues[]>([]);
+  const [groupsValues, setGroupsValues] = useState<GroupValues[]>([]);
   const [newGroupName, setNewGroupName] = useState('');
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editedGroupName, setEditedGroupName] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState<any | null>(null); // Grupo selecionado
-    const [groupUsers, setGroupUsers] = useState<any[]>([]); // Usuários do grupo selecionado
-    const [pagination, setPagination] = useState({
-        startAt: 0,
-        maxResults: 10, // Número de resultados por página
-        total: 0,
-        isLast: false,
-    });
-
-    const fetchGroupUsers = async (groupId: string, startAt: number = 0) => {
-      try {
-        const data = await fetchGroupUsersFromAPI(groupId, startAt); 
-        setGroupUsers(data.values); // Atualiza a lista de usuários
-        setSelectedGroup(groups.find((group) => group.groupId === groupId)); // Define o grupo selecionado
-        setPagination({
-          startAt: data.startAt,
-          maxResults: data.maxResults,
-          total: data.total,
-          isLast: data.isLast,
-        });
-      } catch (error) {
-        console.error("Erro ao buscar usuários do grupo:", error);
-        showToast("error", "Erro ao carregar usuários do grupo.");
-      }
-    };
+  const [pagination, setPagination] = useState({
+    startAt: 0,
+    maxResults: 7,
+    total: 0,
+    isLast: false,
+  });
 
   // Carregar todos os grupos ao iniciar a página
   useEffect(() => {
     const loadGroups = async () => {
       try {
-        const fetchedGroups = await fetchAllGroups();
-        setGroups(fetchedGroups);
+        const fetchedGroups = await fetchAllGroups(pagination.startAt, pagination.maxResults);
+        setGroups(fetchedGroups.values);
+        console.log("Grupos: ", groups);
+        setPagination({
+          startAt: fetchedGroups.startAt,
+          maxResults: fetchedGroups.maxResults,
+          total: fetchedGroups.total,
+          isLast: fetchedGroups.isLast,
+        });
       } catch (error) {
         console.error("Erro ao buscar grupos:", error);
         showToast("error", "Erro ao carregar grupos.");
       }
     };
     loadGroups();
-  }, []);
+  }, [pagination.maxResults, pagination.startAt]);
 
   // Função para criar um novo grupo
   const handleCreateGroup = async () => {
@@ -78,11 +66,10 @@ export default function GroupsPage() {
     }
     try {
       const createdGroup = await createGroup(newGroupName);
-      // setGroups([...groups, createdGroup]);
       setNewGroupName('');
       showToast("success", "Grupo criado com sucesso!");
-      const fetchedGroups = await fetchAllGroups();
-      setGroups(fetchedGroups);
+      const fetchedGroups = await fetchAllGroups(pagination.startAt, pagination.maxResults);
+      setGroups(fetchedGroups.values);
     } catch (error) {
       console.error("Erro ao criar grupo:", error);
       showToast("error", "Erro ao criar grupo.");
@@ -93,7 +80,7 @@ export default function GroupsPage() {
   const handleDeleteGroup = async (groupId: string) => {
     try {
       await deleteGroup(groupId);
-      setGroups(groups.filter(group => group.id !== groupId));
+      setGroups(groups.filter(group => group.groupId !== groupId));
       showToast("success", "Grupo removido com sucesso!");
     } catch (error) {
       console.error("Erro ao deletar grupo:", error);
@@ -115,7 +102,7 @@ export default function GroupsPage() {
     }
     try {
       const updatedGroup = await updateGroup(editingGroupId!, editedGroupName);
-      setGroups(groups.map(group => (group.id === editingGroupId ? updatedGroup : group)));
+      setGroups(groups.map(group => (group.groupId === editingGroupId ? updatedGroup : group)));
       setEditingGroupId(null);
       setEditedGroupName('');
       showToast("success", "Grupo atualizado com sucesso!");
@@ -133,6 +120,24 @@ export default function GroupsPage() {
     router.push("/");
     return null;
   }
+
+  const handleNextPage = () => {
+    if (!pagination.isLast) {
+      setPagination((prev) => ({
+        ...prev,
+        startAt: prev.startAt + prev.maxResults,
+      }));
+    }
+  };
+  
+  const handlePreviousPage = () => {
+    if (pagination.startAt > 0) {
+      setPagination((prev) => ({
+        ...prev,
+        startAt: Math.max(0, prev.startAt - prev.maxResults),
+      }));
+    }
+  };
 
   return (
     <>
@@ -191,6 +196,23 @@ export default function GroupsPage() {
             ) : (
               <p>Nenhum grupo encontrado.</p>
             )}
+          </div>
+          {/* Botões de paginação */}
+          <div className="flex justify-center mt-4 gap-4">
+            <button
+              onClick={handlePreviousPage}
+              disabled={pagination.startAt === 0}
+              className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400"
+            >
+              <Icon icon="ooui:next-rtl" width="20" height="20" />
+            </button>
+            <button
+              onClick={handleNextPage}
+              disabled={pagination.isLast}
+              className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400"
+            >
+              <Icon icon="ooui:next-ltr" width="20" height="20" />
+            </button>
           </div>
         </div>
       </div>
