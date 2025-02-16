@@ -8,6 +8,8 @@ export default function Home() {
   const {data: session, status} = useSession()
   const router = useRouter()
 
+  console.log(session)
+
   if (status === 'loading') {
     return <Loading/>
   }

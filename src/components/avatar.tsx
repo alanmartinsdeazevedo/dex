@@ -12,9 +12,7 @@ interface Session {
 export default function UserAvatar(){
   const { data: session } = useSession()
   const [Admin, setAdmin] = useState<Boolean | null>(false)
-  //const isAdmin = await userRole(session?.user?.email ?? "")
-  //setAdmin(isAdmin ? true : false)
-  console.log ("session avatar: ", session)
+
   let imgAvatar = '/assets/img/gatotelemarketing.jpg'
 
   if (session?.user?.image) {

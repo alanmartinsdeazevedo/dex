@@ -11,7 +11,6 @@ import { handleReenviarCLH, handleSearchGloboPlay, handleSearchTelecine, handleF
 import { handleFixitApp, handleResetPass, handleSearchCentral } from '@/src/lib/central';
 import { handleSearchMax, handleFixitDeezer, handleReenviarDeezer, handleSearchDeezer, handleSearchPortal } from '@/src/lib/playhub';
 import { handleSearchExitLag, handleReenviarSP, handleFixitSP } from '@/src/lib/superplayer';
-import { authUserRole } from '@/src/app/api/auth/[...nextauth]/authUser';
 import { getNotifications } from '../app/api/auth/[...nextauth]/notifications';
 import { DarkThemeToggle, Alert } from 'flowbite-react';
 import Logo from './icons';
@@ -143,10 +142,10 @@ export default function Index(){
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    const authUser = await authUserRole(userEmail ?? '', userName ?? '', userImage ?? '');
-    
-    console.log("AuthUser: ", authUser)
-    setIsSuperUser(authUser ? true : false);
+
+    if (session?.user.role !== 'Colaborador') {
+      setIsSuperUser(true);
+    }
 
     if (svaSelect === "Globoplay") {
       console.log('App: ', svaSelect)
