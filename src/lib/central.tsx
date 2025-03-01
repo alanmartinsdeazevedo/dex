@@ -27,7 +27,7 @@ export const handleSearchCentral = async (cleanedID: string) => {
         statusCode: 200,
         name: response.nomeassinante,
         document: response.cpfcnpj,
-        email: response.email,
+        email: response.email.split(";")[0],
         password: "********",
         phone: response.telefones[0].ddd+" "+response.telefones[0].telefone,
       };

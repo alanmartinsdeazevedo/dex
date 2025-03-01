@@ -2,7 +2,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
-import { searchUser, handleAssign, handleInvite, handleSuspend, suspendAllUsers, licenseUse } from '@/src/lib/atlassian';
+import { searchUser, handleAssign, handleInvite, handleSuspend, suspendAllUsers, licenseUse, fetchIssueCount } from '@/src/lib/atlassian';
 import { useEffect, useState, useMemo } from "react";
 import 'react-toastify/dist/ReactToastify.css';
 import confetti from 'canvas-confetti';
@@ -59,19 +59,34 @@ export default function Home() {
   const [licenseData, setLicenseData] = useState({ used: 0, available: 0 });
   const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
   const [ticketData, setTicketData] = useState({
-    SVA: 0,
-    Onboarding: 0,
-    Offboarding: 0,
-    Recursos: 0,
-    Massivo: 0,
+    Governança: 0,
+    Infraestrutura: 0,
+    "Controles Internos": 0,
+    Billing: 0,
+    "Massivo Total": 0,
     "Massivo Parcial": 0,
   });
 
   const fetchLicenseData = async () => {
     try {
       const response = await licenseUse() || 0;
-      const available = Math.max(0, 500 - response); 
+      const available = Math.max(0, 500 - response);
+      console.log("available: ", available);
+      console.log("used: ", response);
       setLicenseData({ available: available, used: response });
+
+      const responseIssueCount = await fetchIssueCount();
+      if (responseIssueCount) {
+        setTicketData({
+          Governança: responseIssueCount.Governança || 0,
+          Infraestrutura: responseIssueCount.Infraestrutura || 0,
+          "Controles Internos": responseIssueCount["Controles Internos"] || 0,
+          Billing: responseIssueCount.Billing || 0,
+          "Massivo Total": responseIssueCount["Massivo Total"] || 0,
+          "Massivo Parcial": responseIssueCount["Massivo Parcial"] || 0,
+        });
+      }
+      console.log("responseIssueCount: ", responseIssueCount);
     } catch (error) {
       console.error("Erro ao buscar dados de licença:", error);
       showToast("error", "Erro ao carregar dados de licença.");
@@ -90,7 +105,6 @@ export default function Home() {
         Massivo: 10,
         "Massivo Parcial": 15,
       };
-      setTicketData(mockData);
     } catch (error) {
       console.error("Erro ao buscar dados de chamados:", error);
       showToast("error", "Erro ao carregar dados de chamados.");
@@ -226,7 +240,7 @@ export default function Home() {
           {/* Gráfico de Licenças */}
           <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">
-              Uso de Licenças
+              Uso de Licenças (Jira)
             </h2>
             <div className="w-full h-[300px]">
               {chartSeries.every(series => typeof series === "number") ? (
@@ -244,19 +258,10 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">
-              Uso de Licenças
-            </h2>
-            <div className="w-full h-[300px]">
-              
-            </div>
-          </div>
-
           {/* Gráfico de Chamados */}
           <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">
-              Histórico de Chamados Abertos
+              Áreas demandadas (GSTI)
             </h2>
             <div className="w-full h-[350px]">
               <Chart
@@ -268,15 +273,18 @@ export default function Home() {
               />
             </div>
           </div>
-        </div>
 
-        {/* Botão de Confete */}
-        <button
-          onClick={showConfetti}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-300"
-        >
-          Celebrar!
-        </button>
+          {/* <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">
+              Uso de Licenças
+            </h2>
+            <div className="w-full h-[300px]">
+              
+            </div>
+          </div> */}
+
+          
+        </div>
       </div>
 
       <ToastContainer limit={4} />

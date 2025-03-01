@@ -5,11 +5,7 @@ import { GroupList } from "@/src/types/group";
   myHeaders.append("Content-Type", "application/json");
   myHeaders.append("Accept", "application/json");
   myHeaders.append("Authorization", `Basic ${process.env.ATLASSIAN_TOKEN}`);
-
-  const codexHeaders = new Headers();
-  codexHeaders.append("Accept", "application/json");
-  codexHeaders.append("Authorization", `Bearer ATCTT3xFfGN0Q82CRla25iwBKkxCr_ezjciWjHKExZf-aeGu27kSWIw0uXUVt8DEv4G8CSt5APEFZ2uur0aEAoNYYGXSikdi_RyVz4IwgjElzS1d5dEK5XyHFjfmHmP7hgNf4Ulsimr4QugVLb7myoHeLRPYua4U572yNXnC36bnoU9wcT7Isk0=9C7AB7E4`);
-
+  
   const usersSuspended = [
     "X0l9K@example.com",]
 
@@ -25,6 +21,7 @@ import { GroupList } from "@/src/types/group";
       }
   
       const data = await response.json();
+  
       return data;
     } catch (error) {
       console.error("Erro:", error);
@@ -55,7 +52,7 @@ import { GroupList } from "@/src/types/group";
       const groups = await getUserGroups(accountId);
   
       const returnData = {
-        user: userData[0],
+        user: userData.find((user: { accountType: string; }) => user.accountType === "atlassian") || userData[0],
         groups: groups,
       };
   
@@ -145,7 +142,7 @@ export const handleAssign = async (groupId: string, email: string) => {
 export const handleInvite = async (email: string) => {
   try {
     console.log("Email: ", email);
-    const sendInvite = await fetch("${process.env.ATLASSIAN_URL}/3/user", {
+    const sendInvite = await fetch(`${process.env.ATLASSIAN_URL}/3/user`, {
       method: 'POST',
       headers: myHeaders,
       body: JSON.stringify({
@@ -161,7 +158,7 @@ export const handleInvite = async (email: string) => {
     }
 
   } catch (error) {
-    return null
+    return 500
   }
 }
 
@@ -192,7 +189,7 @@ export const handleSuspend = async (email: string) => {
     console.log("Account ID: ", accountId);
     const suspendUser = await fetch(`https://api.atlassian.com/admin/v1/orgs/da3430ak-c808-100k-k86a-c36978j6dkkj/directory/users/${accountId}/suspend-access`, {
       method: 'POST',
-      headers: codexHeaders,
+      headers: myHeaders,
       redirect: "follow"
     })
 
@@ -222,7 +219,7 @@ export const suspendAllUsers = async () => {
 
 export const licenseUse = async (): Promise<number | null> => {
   try {
-    const response = await fetch("${process.env.ATLASSIAN_URL}/3/license/approximateLicenseCount/product/jira-servicedesk", {
+    const response = await fetch(`${process.env.ATLASSIAN_URL}/3/license/approximateLicenseCount/product/jira-servicedesk`, {
       method: 'GET',
       headers: myHeaders,
       redirect: "follow"
@@ -244,6 +241,45 @@ export const licenseUse = async (): Promise<number | null> => {
   } catch (error) {
     console.error("Erro ao buscar dados de licença:", error);
     return 0; // Retorna null em caso de erro
+  }
+};
+
+export const fetchIssueCount = async () => {
+  const ISSUE_TYPES_JQL: Record<string, string> = {
+    "Governança": 'project = GSTI AND resolution = Unresolved AND "grupo solucionador[dropdown]" = "Governança de TI"',
+    "Infraestrutura": 'project = GSTI AND resolution = Unresolved AND "grupo solucionador[dropdown]" = "Infraestrutura"',
+    "Controles Internos": 'project = GSTI AND resolution = Unresolved AND "grupo solucionador[dropdown]" = "Controles Internos"',
+    "Billing": 'project = GSTI AND resolution = Unresolved AND "grupo solucionador[dropdown]" = "Billing & Financial"',
+    "Massivo Total": 'project = GSTI AND resolution = Unresolved AND "gravidade do incidente[dropdown]" = "Massivo Total"',
+    "Massivo Parcial": 'project = GSTI AND resolution = Unresolved AND "gravidade do incidente[dropdown]" = "Massivo Parcial"',
+  };
+
+  const results: Record<string, number> = {};
+
+  try {
+    for (const [type, jql] of Object.entries(ISSUE_TYPES_JQL)) {
+      console.log(`Buscando ${jql}...`);
+      const response = await fetch(`${process.env.ATLASSIAN_URL}/3/search/approximate-count`, {
+        method: 'POST',
+        headers: myHeaders,
+        body: JSON.stringify({ jql }),
+      });
+
+
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP ao buscar ${type}: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(`Total de ${type}: ${data.count}`);
+      results[type] = data.count || 0;
+    }
+
+    return results;
+  } catch (error) {
+    console.error("Erro ao buscar dados do Jira:", error);
+    return Object.fromEntries(Object.keys(ISSUE_TYPES_JQL).map(key => [key, 0]));
   }
 };
 

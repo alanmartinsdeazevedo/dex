@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { handleLog } from './log';
 
-const gateway = process.env.NEXT_PUBLIC_GATEWAY_URL;
+const backend = process.env.BACKEND_URL;
 const apikey = process.env.NEXT_PUBLIC_API_KEY;
 const GloboplayID = [1, 2, 6, 7, 25];
 const TelecineID = [4, 10];
@@ -13,13 +13,14 @@ export const handleSearchGloboPlay = async (cleanedID: string) => {
   try {
     const options = {
       method: "GET",
-      url: `${gateway}/globoplay/info/${cleanedID}`,
+      url: `${backend}/celetihub/info/${cleanedID}`,
       headers: {
         apikey: `${apikey}`,
       }
     }
 
     const response = await axios.request(options);
+
     if (response.status === 200) {
       const subscriber = response.data.subscriber;
       const isGPL = subscriber.services.find((service: { content_supplier_product_id: number; }) => 
@@ -57,7 +58,7 @@ export const handleSearchTelecine = async (cleanedID: string) => {
     try {
       const options = {
         method: "GET",
-        url: `${gateway}/globoplay/info/${cleanedID}`,
+        url: `${backend}/celetihub/info/${cleanedID}`,
         headers: {
           apikey: `${apikey}`,
         }
@@ -102,7 +103,7 @@ export const handleSearchPremiere = async (cleanedID: string) => {
     try {
       const options = {
         method: "GET",
-        url: `${gateway}/globoplay/info/${cleanedID}`,
+        url: `${backend}/celetihub/info/${cleanedID}`,
         headers: {
           apikey: `${apikey}`,
         }
@@ -164,7 +165,7 @@ export const handleReenviarCLH = async (cleanedID: string, product_id: number, u
   try {
     const options = {
       method: "POST",
-      url: `${gateway}/globoplay/resend-email/${cleanedID}`,
+      url: `${backend}/globoplay/resend-email/${cleanedID}`,
       headers: {
         apikey: `${apikey}`,
       },
@@ -186,14 +187,17 @@ export const handleReenviarCLH = async (cleanedID: string, product_id: number, u
 export const handleFixitGloboPlay = async (cleanedID: string, username: string, product_name: string) => {
   try {
     const info = {
-      method: "GET",
-      url: `${gateway}/appalares/info/${cleanedID}`,
-      headers: {
-        apikey: `${apikey}`,
+      method: "POST",
+      url: `${backend}/central/assinante`,
+      data: {
+        cpfcnpj: `${cleanedID}`,
       },
     };
+
     console.info("Fixit: ", info)
     const resInfo = await axios.request(info);
+
+    console.log('resInfo: ', resInfo.data);
 
     if (resInfo.data.email === 'Por favor, verifique o email.') {
       console.log('Caiu no: EMAIL_NOT_FOUND');
@@ -201,27 +205,28 @@ export const handleFixitGloboPlay = async (cleanedID: string, username: string, 
         statusCode: 404,
         message: "EMAIL_NOT_FOUND",
       };
-    } else if (resInfo.status === 200) {
+    } else if (resInfo.status === 201) {
+      console.log('Caiu no: EMAIL_FOUND');
       const fixit = {
         method: "POST",
-        url: `${gateway}/globoplay/fixit/${cleanedID}`,
-        headers: {
-          apikey: `${apikey}`,
-        },
+        url: `${backend}/celetihub/update`,
         data: {
           email: resInfo.data.email,
-          name: resInfo.data.name,
+          name: resInfo.data.nomeassinante,
           document: cleanedID,
-          phone: resInfo.data.phone,
+          phone: "+55" + resInfo.data.telefones[0].ddd + resInfo.data.telefones[0].telefone,
           internet_speed_id: 28,
           customer_plan: "",
         },
       };
 
-      const resFixit = await axios.request(fixit);
-      const resultLog = await handleLog(username, cleanedID, product_name, "Fixit", "127.0.0.1" )
+      console.info("Fixit: ", fixit)
 
-      return resultLog
+      const resFixit = await axios.request(fixit);
+
+      console.log('resFixit: ', resFixit.status);
+
+      return resFixit.status
       };
       
   } catch (erro) {

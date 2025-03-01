@@ -1,6 +1,7 @@
 "use server"
 import axios from 'axios';
 import { handleLog } from './log';
+const backend = process.env.BACKEND_URL;
 const gateway = process.env.NEXT_PUBLIC_GATEWAY_URL;
 const apikey = process.env.NEXT_PUBLIC_API_KEY;
 
@@ -13,14 +14,13 @@ export const handleSearchMax = async (cleanedID: string) => {
     // Verifica o produto
     const product = {
       method: "GET",
-      url: `${gateway}/deezer/product/${cleanedID}`,
-      headers: {
-        apikey: `${apikey}`,
-      }
+      url: `${backend}/playhub/info/${cleanedID}`,
     };
 
     const resProduct = await axios.request(product);
-    const productId = resProduct.data.data
+    const productId = resProduct.data.subscriptions
+
+    console.log("productId: ", productId);
 
     if (productId.some((product: { ProductId: string }) => product.ProductId === 'P01')) {
       serviceStatus = 'Vinculado';
@@ -29,27 +29,16 @@ export const handleSearchMax = async (cleanedID: string) => {
       serviceStatus = 'canceled';
       services = 'Max';
     }
-
-    const options = {
-      method: "GET",
-      url: `${gateway}/deezer/info/${cleanedID}`,
-      headers: {
-        apikey: `${apikey}`,
-      }
-    };
-
-    const response = await axios.request(options);
-
-    let cleanedEmail = response.data.data.Email;
+    let cleanedEmail = resProduct.data.Email;
     if (cleanedEmail === null) {
       cleanedEmail = 'Não informado';
     }
 
-    if (response.status === 200) {
+    if (resProduct.status === 200) {
       const cleanedResult = {
-        name: response.data.data.Name,
-        document: response.data.data.Document,
-        phone: "+55"+response.data.data.Mobile,
+        name: resProduct.data.Name,
+        document: resProduct.data.Document,
+        phone: "+55"+resProduct.data.Mobile,
         email: cleanedEmail,
         services: services,
         product_id: 0,
@@ -58,7 +47,7 @@ export const handleSearchMax = async (cleanedID: string) => {
       };
       console.log("cleanedResult: ",cleanedResult)
       return cleanedResult;
-    } else if (response.status === 404) {
+    } else if (resProduct.status === 404) {
       console.log('Cliente não localizado');
     }
   } catch (error) {
@@ -72,16 +61,14 @@ export const handleSearchDeezer = async (cleanedID: string) => {
       let serviceStatus = 'canceled';
       let services = 'Deezer';
 
-      const product = {
+      const response = {
         method: "GET",
-        url: `${gateway}/deezer/product/${cleanedID}`,
-        headers: {
-          apikey: `${apikey}`,
-        }
-      }
-      const resProduct = await axios.request(product);
+        url: `${backend}/playhub/info/${cleanedID}`,
+      };
 
-      const productId = resProduct.data.data
+      const customerResponse = await axios.request(response);
+
+      const productId = customerResponse.data.subscriptions;
 
       if (productId.some((product: { ProductId: string }) => product.ProductId === 'DZ1')) {
         serviceStatus = 'Vinculado';
@@ -89,25 +76,16 @@ export const handleSearchDeezer = async (cleanedID: string) => {
         serviceStatus = 'canceled';
       }
 
-      const options = {
-        method: "GET",
-        url: `${gateway}/deezer/info/${cleanedID}`,
-        headers: {
-          apikey: `${apikey}`,
-        }
-      }
-      const response = await axios.request(options);
-
-      let cleanedEmail = response.data.data.Email;
+      let cleanedEmail = customerResponse.data.Email;
       if (cleanedEmail === null) {
         cleanedEmail = 'Não informado'
       }
 
-      if (response.status === 200) {
+      if (customerResponse.status === 200) {
         const cleanedResult = {
-          name: response.data.data.Name,
-          document: response.data.data.Document,
-          phone: '+55'+response.data.data.Mobile,
+          name: customerResponse.data.Name,
+          document: customerResponse.data.Document,
+          phone: '+55'+customerResponse.data.Mobile,
           email: cleanedEmail,
           services: services,
           product_id: 0,
@@ -116,7 +94,7 @@ export const handleSearchDeezer = async (cleanedID: string) => {
         }
         return cleanedResult;
 
-      } else if (response.status === 404) {
+      } else if (customerResponse.status === 404) {
         console.log('Cliente não localizado')
       }
   } catch (error) {
@@ -184,25 +162,22 @@ export const handleReenviarDeezer = async (cleanedID: string, phone: string, use
 export const handleSearchPortal = async (cleanedID: string) => {
   
   try {
-      const options = {
+      const response = {
         method: "GET",
-        url: `${gateway}/deezer/info/${cleanedID}`,
-        headers: {
-          apikey: `${apikey}`,
-        }
-      }
-      const response = await axios.request(options);
+        url: `${backend}/playhub/info/${cleanedID}`,
+      };
+      const customerResponse = await axios.request(response);
 
-      let cleanedEmail = response.data.data.Email;
+      let cleanedEmail = customerResponse.data.Email;
       if (cleanedEmail === null) {
         cleanedEmail = 'Não informado'
       }
 
-      if (response.status === 200) {
+      if (customerResponse.status === 200) {
         const cleanedResult = {
-          name: response.data.data.Name,
-          document: response.data.data.Document,
-          phone: '+55'+response.data.data.Mobile,
+          name: customerResponse.data.Name,
+          document: customerResponse.data.Document,
+          phone: '+55'+customerResponse.data.Mobile,
           email: cleanedEmail,
           services: 'Portal',
           product_id: 0,
@@ -211,7 +186,7 @@ export const handleSearchPortal = async (cleanedID: string) => {
         }
         return cleanedResult;
 
-      } else if (response.status === 404) {
+      } else if (customerResponse.status === 404) {
         console.log('Cliente não localizado')
       }
   } catch (error) {
@@ -221,35 +196,35 @@ export const handleSearchPortal = async (cleanedID: string) => {
 
 export const handleFixitDeezer = async (cleanedID: string, username: string, product_name: string) => {
   try {
-    console.log('Verificando App');
     const info = {
-      method: "GET",
-      url: `${gateway}/appalares/info/${cleanedID}`,
-      headers: {
-        apikey: `${apikey}`,
+      method: "POST",
+      url: `${backend}/central/assinante`,
+      data: {
+        cpfcnpj: `${cleanedID}`,
       },
     };
+
+    console.log('info: ', info);
+
     const resInfo = await axios.request(info);
 
+    console.log('resInfo: ', resInfo.data);
+
     if (resInfo.data.email.length === 0) {
-      return {
-        statusCode: 404,
-        message: "EMAIL_NOT_FOUND",
-      };
-    } else if (resInfo.status === 200) {
+      console.log('Caiu no: EMAIL_NOT_FOUND');
+      return 400;
+    } else if (resInfo.status === 201) {
       console.log('resInfo: ', resInfo.data);
 
-      const Name = resInfo.data.name.trim();
-      const Mobile = resInfo.data.phone.substr(3).replace('-',"")
+      const Name = resInfo.data.nomeassinante.trim();
+      const Mobile = resInfo.data.telefones[0].ddd+resInfo.data.telefones[0].telefone.replace('-',"")
       const Email = resInfo.data.email.trim();
 
       const fixit = {
         method: "POST",
-        url: `${gateway}/deezer/fixit/${cleanedID}`,
-        headers: {
-          apikey: `${apikey}`,
-        },
+        url: `${backend}/playhub/update`,
         data: {
+          Document: cleanedID,
           Password: cleanedID,
           Name: Name,
           Email: Email,
@@ -260,11 +235,9 @@ export const handleFixitDeezer = async (cleanedID: string, username: string, pro
       console.log('fixit: ', fixit.data);
 
       const resFixit = await axios.request(fixit);
+      console.log('resFixit: ', resFixit.status);
 
-      if (resFixit.status === 200) {
-        const resultLog = await handleLog(username, cleanedID, product_name, "Fixit", "127.0.0.1");
-        return resultLog;
-      }
+      return resFixit.status;
     }
   } catch (erro) {
     console.log('Erro ao registrar Log Fixit', erro);

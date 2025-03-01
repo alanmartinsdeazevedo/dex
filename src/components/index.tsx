@@ -63,6 +63,7 @@ export default function Index(){
     return inputCpf.replace(/[./-\s]/g, '')
   }
   const cleanedID = cleanCpf(cpf)
+  console.log("Session: ", session)
 
   const showSuccessToast = (message: string) => {
     toast.success(message, {
@@ -255,10 +256,10 @@ export default function Index(){
 
     if (svaSelect === 'Globoplay' || svaSelect === 'Telecine' || svaSelect === 'Premiere') {
       const resultFixit = await handleFixitGloboPlay(cleanedID, userName||'', services);
-      if (resultFixit?.statusCode === 201) {
+      if (resultFixit === 201) {
         showSuccessToast('Cliente atualizado! 🎉');
         showConfetti();
-      } else if (resultFixit?.statusCode === 404) {
+      } else if (resultFixit === 404) {
         showWarnToast('Por favor, verifique o email. 📭');
       } else {
         showErrorToast('Sistema indisponivel 😖, tente novamente mais tarde');
@@ -277,9 +278,11 @@ export default function Index(){
       }
     } else if (svaSelect === 'Deezer' || svaSelect === 'Portal' || svaSelect === 'Max') {
       const resultFixit = await handleFixitDeezer(cleanedID, userName||'', services);
-      if (resultFixit?.statusCode === 201) {
+      if (resultFixit === 201) {
         showSuccessToast('Cliente atualizado! 🎉');
         showConfetti();
+      } else if (resultFixit === 400) {
+        showWarnToast('Por favor, corrija os dados no i-Manager 👨‍💻');
       } else {
         showErrorToast('Sistema indisponivel 😖, tente novamente mais tarde');
       }
@@ -398,9 +401,11 @@ export default function Index(){
                 </span>
             </li>
         </ul>
-        
-        <Reenviar onAction={handleAction} toast={notify} action={action} />
-        
+        <div className='text-gray-500 dark:text-white'>
+        <h3>Devido a uma alteração na central do assinante, esta opção foi desabilitada.</h3>
+        <h3>Voltaremos em breve com essa funcionalidade atualizada.</h3>
+        {/* <Reenviar onAction={handleAction} toast={notify} action={action} /> */}
+        </div>
         </div>
         
         </div>

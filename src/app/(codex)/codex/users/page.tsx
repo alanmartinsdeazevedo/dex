@@ -2,7 +2,9 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
+import { ConfirmModal } from "@/src/components/modal";
 import { searchUser, handleAssign, handleInvite, handleSuspend, suspendAllUsers, licenseUse, fetchAllGroups } from '@/src/lib/atlassian';
+import { Modal, Button } from "flowbite-react";
 import { useEffect, useState, useMemo } from "react";
 import 'react-toastify/dist/ReactToastify.css';
 import confetti from 'canvas-confetti';
@@ -63,11 +65,16 @@ interface Groups {
 export default function Home() {
   const {data: session, status} = useSession()
   const router = useRouter()
+  const [openInviteUserModal, setOpenInviteUserModal] = useState(false);
+  const [openAddToGroupModal, setAddToGroupModal] = useState(false);
+  const [openDeactivateUserModal, setDeactivateUserModal] = useState(false);
   const [search, setSearch] = useState<UserData | null>();
+  const [notFound, setNotFound] = useState(false);
+  const [outOfDirectory, setOutOfDirectory] = useState(false);
   const [email, setEmail] = useState('');
   const [groups, setGroups] = useState<GroupSelectList[]>([]);
   const [userGroups, setUserGroups] = useState<GroupData[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [message, setMessage] = useState('');
   const [licenseData, setLicenseData] = useState({ used: 0, available: 0 });
   const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -91,7 +98,16 @@ export default function Home() {
     {"id": "16", "groupId": "b6b03ceb-0029-4849-b6b6-3d934d21c88c", "groupName": "RUIET", "description": "em desenvolvimento", "order": 16, "createdAt": "2024-01-16T12:00:00Z"},
     {"id": "17", "groupId": "aa826844-690a-4a34-b47c-0d6b110d9c52", "groupName": "RUIET Resolvedor", "description": "em desenvolvimento", "order": 17, "createdAt": "2024-01-17T12:00:00Z"},
     {"id": "18", "groupId": "16c83fec-ab80-4fba-8053-8cab7e84270c", "groupName": "RHB Resolvedor", "description": "em desenvolvimento", "order": 18, "createdAt": "2024-01-18T12:00:00Z"},
-    {"id": "19", "groupId": "69b4239b-7473-4cec-97b8-f6469fce5f51", "groupName": "RHS Resolvedor", "description": "em desenvolvimento", "order": 19, "createdAt": "2024-01-19T12:00:00Z"}
+    {"id": "19", "groupId": "69b4239b-7473-4cec-97b8-f6469fce5f51", "groupName": "RHS Resolvedor", "description": "em desenvolvimento", "order": 19, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "20", "groupId": "499d0950-349e-4a24-8c62-c59944377554", "groupName": "BS Resolvedor", "description": "em desenvolvimento", "order": 20, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "21", "groupId": "828ff6f4-cf8a-4a67-b879-77d21e6e96bb", "groupName": "ENGT Resolvedor", "description": "em desenvolvimento", "order": 21, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "22", "groupId": "c8f09917-c983-4ee4-89c1-017eab4cdc20", "groupName": "FAC Resolvedor", "description": "em desenvolvimento", "order": 22, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "23", "groupId": "3dfc3e70-af6f-4997-9a2b-3322daaa55f2", "groupName": "FEF Resolvedor", "description": "em desenvolvimento", "order": 23, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "24", "groupId": "190befbf-2b30-4b12-b401-73669acc1be9", "groupName": "FIN Resolvedor", "description": "em desenvolvimento", "order": 24, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "25", "groupId": "9bf6cb3b-0b0f-42dd-a738-2f82079d31e7", "groupName": "GSTI Resolvedor", "description": "em desenvolvimento", "order": 25, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "26", "groupId": "513fcad8-b73f-4709-b202-d8436ff21c58", "groupName": "GSTI RH", "description": "em desenvolvimento", "order": 26, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "27", "groupId": "c5b88a13-0f89-4827-a982-fcc5dceae5d4", "groupName": "GMUDT Resolvedor", "description": "em desenvolvimento", "order": 27, "createdAt": "2024-01-19T12:00:00Z"},
+    {"id": "28", "groupId": "9b2f59e2-3155-4b0b-b1eb-a7c559cc8144", "groupName": "GSOP Resolvedor", "description": "em desenvolvimento", "order": 28, "createdAt": "2024-01-19T12:00:00Z"},
   ];
 
   const fetchLicenseData = async () => {
@@ -114,6 +130,77 @@ export default function Home() {
   const handleSearch = async (e: React.FormEvent) => {
       e.preventDefault()
     }
+  
+    const handleSearchClick = async () => {
+      try {
+        if (!email) {
+          showToast("warn", "Preencha todos os campos obrigatórios.");
+          return;
+        }
+    
+        const result = await searchUser(email);
+    
+        if (result === 404) {
+          // Usuário não encontrado, exibir opção para convidar
+          setSearch(null);
+          setUserGroups([]);
+          setNotFound(true); // Define notFound como true
+          showToast("warn", "Usuário não encontrado. Clique no botão para convidar.");
+        } else if (result) {
+          const { user, groups } = result;
+          console.log("Resultado da busca:", result);
+          setNotFound(false);
+          setEmail(user.emailAddress);
+          console.log("Email: ", user.emailAddress);
+          setSearch(user); // Atualiza o estado do usuário
+          if (user.accountType !== "atlassian") {
+            setOutOfDirectory(true);
+            showToast("warn", "Usuário não encontrado no diretório.");
+          } else {
+            setOutOfDirectory(false);
+            showToast("success", "Usuário localizado.");
+          }
+          setUserGroups(groups); // Atualiza o estado dos grupos
+        }
+    
+        console.log("outOfDirectory: ", outOfDirectory);
+      } catch (error) {
+        console.error("Error: ", error);
+        showToast("error", "Ocorreu um erro. Tente novamente.");
+      }
+    };
+
+  const handleInviteClick = async () => {
+    try {
+      const result = await handleInvite(email);
+      if (result === 201) {
+        showToast("success", "Convite enviado com sucesso!");
+        showConfetti();
+        setOpenInviteUserModal(false);
+      } else {
+        showToast("error", "Erro ao enviar convite.");
+      }
+    } catch (error) {
+      console.error("Error during invite:", error);
+      showToast("error", "Ocorreu um erro. Tente novamente.");
+    }
+  };
+
+  const handleSuspendClick = async () => {
+    try {
+      const result = await handleSuspend(email);
+      if (result === 201) {
+        showToast("success", "Usuário suspendido com sucesso!");
+        showConfetti();
+        setOpenInviteUserModal(false);
+      } else {
+        showToast("error", "Erro ao suspender usuário.");
+      }
+    } catch (error) {
+      console.error("Error during suspend:", error);
+      showToast("error", "Ocorreu um erro. Tente novamente.");
+    }
+  };
 
   const chartSeries = [
     licenseData?.available ?? 0,
@@ -157,9 +244,6 @@ export default function Home() {
         let result;
   
         switch (selectedGroup) {
-          case "invite":
-            result = await handleInvite(email);
-            break;
           case "suspend":
             result = await handleSuspend(email);
             break;
@@ -171,6 +255,7 @@ export default function Home() {
         }
   
         if (result === 201) {
+          setAddToGroupModal(false);
           showToast("success", "Operação realizada com sucesso!");
           showConfetti();
           handleSearchClick();
@@ -184,31 +269,6 @@ export default function Home() {
         showToast("error", "Ocorreu um erro. Tente novamente.");
       }
     };
-
-  const handleSearchClick = async () => {
-    try {
-      if (!email) {
-        showToast("warn", "Preencha todos os campos obrigatórios.");
-        return;
-      }
-  
-      const result = await searchUser(email);
-  
-      if (result === 404) {
-        showToast("warn", "Usuário não encontrado.");
-      } else if (result) {
-        const { user, groups } = result;
-        console.log("Resultado da busca:", result);
-        setSearch(user);  // Atualiza o estado do usuário
-        setUserGroups(groups); // Atualiza o estado dos grupos
-        console.log("Grupos: ", groups);
-        showToast("success", "Usuário localizado.");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      showToast("error", "Ocorreu um erro. Tente novamente.");
-    }
-  };
   
   function showConfetti() {
     confetti({
@@ -258,69 +318,113 @@ export default function Home() {
       </nav>
       {/* Search Section */}
       {search && (
-          <div className="flex w-full min-w-96 bg-white rounded-lg shadow dark:border md:mt-0 xl:max-w-full dark:bg-gray-800 dark:border-gray-700">
-            <div className="w-full p-6 space-y-4 md:space-y-6 sm:p-8">
-              {/* Dados do Usuário Jira */}
-              <div className="flex flex-row items-center mb-6">
-                {/* Exibir Avatar do Usuário */}
-                <Image
-                  src={search.avatarUrls["48x48"] || search.avatarUrls["24x24"] || search.avatarUrls["16x16"]}
-                  width={64}
-                  height={64}
-                  alt="Avatar"
-                />
-                <div className="ml-4">
-                  <h1 className="text-xl font-bold">{search.displayName}</h1>
-                  <p className="text-gray-700 dark:text-gray-300">{search.emailAddress}</p>
-                  <p className="text-gray-700 dark:text-gray-300">Status: {search.active ? "Ativo" : "Inativo"}</p>
-                </div>
-                <div className="ml-auto">
-                  <button
-                    className="p-4 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                    >
-                    Desativar Usuário
-                  </button>
-                </div>
+        <div className="flex w-full min-w-96 bg-white rounded-lg shadow dark:border md:mt-0 xl:max-w-full dark:bg-gray-800 dark:border-gray-700">
+          <div className="w-full p-6 space-y-4 md:space-y-6 sm:p-8">
+            {/* Dados do Usuário Jira */}
+            <div className="flex flex-row items-center mb-6">
+              {/* Exibir Avatar do Usuário */}
+              <Image
+                src={search.avatarUrls["48x48"] || search.avatarUrls["24x24"] || search.avatarUrls["16x16"]}
+                width={64}
+                height={64}
+                alt="Avatar"
+              />
+              <div className="ml-4">
+                <h1 className="text-xl font-bold">{search.displayName}</h1>
+                <p className="text-gray-700 dark:text-gray-300">{search.emailAddress}</p>
+                <p className="text-gray-700 dark:text-gray-300">Status: {search.active ? "Ativo" : "Inativo"}</p>
               </div>
-              {/* Botão de Desativar */}
-              {search.active && (
-              <div className="flex flex-col justify-center mt-4">
-                  
-              <h3>Grupos do Usuário:</h3>
-              <ul>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {userGroups && (
-                userGroups.map((group: any) => (
-                  <li key={group.groupId}>{group.name}</li>
-                )))}
-                  </div>
-              </ul>
-              {/* Select e Botão para Adicionar Grupos */}
-            <div className="flex m-8 w-80 mx-auto items-center relative bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">
-              <select 
-                id="sva"
-                onChange={(e) => setSelectedGroup(e.target.value)}
-                className="p-4 pr-12 bg-transparent border-hidden text-gray-900 text-sm block min-w-52 md:w-auto rounded-lg border dark:bg-gray-700 dark:placeholder-gray-400 dark:text-white">
-                {groupList.map((group: any) => (
-                  <option key={group.groupId} value={group.groupId}>{group.groupName}</option>
-                ))}
-              </select>
+              <div className="ml-auto">
+                <button
+                  onClick={() => setDeactivateUserModal(true)}
+                  className="bg-red-600 text-white hover:bg-red-700 py-2 px-4 rounded"
+                  >
+                  Desativar Usuário
+                </button>
+              </div>
+            </div>
+            {outOfDirectory ? (
               <button
-                type="submit"
-                onClick={handleAssignClick}
-                className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                onClick={() => setOpenInviteUserModal(true)}
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
               >
-                Adicionar
+                Adicionar ao Diretório
               </button>
-            </div>
-            </div>
-              )}
+            ) : (
+              search.active && (
+                <div className="flex flex-col justify-center mt-4">
+                
+                  <h3>Grupos do Usuário:</h3>
+                  <ul>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {userGroups && (
+                      userGroups.map((group: any) => (
+                        <li key={group.groupId}>{group.name}</li>
+                      )))}
+                  </div>
+                  </ul>
+                  {/* Select e Botão para Adicionar Grupos */}
+                  <div className="flex m-8 w-80 mx-auto items-center relative bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">
+                    <select 
+                      id="sva"
+                      onChange={(e) => setSelectedGroup(e.target.value)}
+                      className="p-4 pr-12 bg-transparent border-hidden text-gray-900 text-sm block min-w-52 md:w-auto rounded-lg border dark:bg-gray-700 dark:placeholder-gray-400 dark:text-white">
+                      {groupList.map((group: any) => (
+                        <option key={group.groupId} value={group.groupId}>{group.groupName}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      onClick={() => setAddToGroupModal(true)}
+                      className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
               {message && <div className="text-red-600">{message}</div>}
-            </div>
           </div>
-      )}
+        </div>
+        )}
+        {notFound && (
+          <div>
+            <p>Usuário não encontrado.</p>
+            <button
+              onClick={() => setOpenInviteUserModal(true)}
+              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Convidar Usuário
+            </button>
+          </div>
+        )}
       </div>
-      <ToastContainer limit={4} />
+      <ConfirmModal
+        show={openAddToGroupModal}
+        title="Deseja adicionar o usuário ao grupo?"
+        description="O usuário será adicionado ao grupo selecionado."
+        confirmText="Sim, adicionar"
+        onConfirm={handleAssignClick}
+        onCancel={() => setAddToGroupModal(false)}
+      />
+      <ConfirmModal
+        show={openInviteUserModal}
+        title="Deseja convidar o usuário?"
+        description="O usuário será convidado para o diretório."
+        confirmText="Sim, convidar"
+        onConfirm={handleInviteClick}
+        onCancel={() => setOpenInviteUserModal(false)}
+      />
+      <ConfirmModal
+        show={openDeactivateUserModal}
+        title="Deseja desativar o usuário?"
+        description="O usuário será desativado."
+        confirmText="Sim, desativar"
+        onConfirm={() => handleSuspend}
+        onCancel={() => setDeactivateUserModal(false)}
+      />
+      <ToastContainer />
       </>
     )
   }

@@ -30,7 +30,7 @@ export default function Sidebar() {
                 </button>
             </div>
             </div>
-            <div className="relative block w-full">
+            {/* <div className="relative block w-full">
             <div role="button"
                 className="flex items-center w-full p-0 leading-tight transition-all rounded-lg outline-none text-start hover:bg-blue-gray-50 hover:bg-opacity-80 hover:text-blue-gray-900 focus:bg-blue-gray-50 focus:bg-opacity-80 focus:text-blue-gray-900 active:bg-blue-gray-50 active:bg-opacity-80 active:text-blue-gray-900">
                 <button type="button" className="flex items-center justify-between w-full p-3 font-sans text-xl antialiased font-semibold leading-snug text-left transition-colors border-b-0 select-none border-b-blue-gray-100 text-blue-gray-700 hover:text-blue-gray-900">
@@ -62,7 +62,7 @@ export default function Sidebar() {
                 </nav>
                 </div>
             </div>
-            </div>        
+            </div>         */}
             <div className="relative block w-full">
             <div role="button"
                 className="flex items-center w-full p-0 leading-tight transition-all rounded-lg outline-none text-start hover:bg-blue-gray-50 hover:bg-opacity-80 hover:text-blue-gray-900 focus:bg-blue-gray-50 focus:bg-opacity-80 focus:text-blue-gray-900 active:bg-blue-gray-50 active:bg-opacity-80 active:text-blue-gray-900">
@@ -100,7 +100,7 @@ export default function Sidebar() {
             </div>
             </div>
             <hr className="my-2 border-blue-gray-50" />
-            <div role="button"
+            {/* <div role="button"
             className="flex items-center w-full p-3 leading-tight transition-all rounded-lg outline-none text-start hover:bg-blue-gray-50 hover:bg-opacity-80 hover:text-blue-gray-900 focus:bg-blue-gray-50 focus:bg-opacity-80 focus:text-blue-gray-900 active:bg-blue-gray-50 active:bg-opacity-80 active:text-blue-gray-900">
             <div className="grid mr-4 place-items-center">
             <Icon icon="ix:user-profile-filled" width="24" height="24" />
@@ -120,7 +120,7 @@ export default function Sidebar() {
             <Icon icon="line-md:logout" width="24" height="24" />
             </div>
             Sair
-            </div>
+            </div> */}
             <DarkThemeToggle />
         </nav>
         </div>

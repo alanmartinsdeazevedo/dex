@@ -2,9 +2,19 @@
 import Loading from "@/src/components/loading";
 import Sidebar from "@/src/components/sidebar";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function DexLayout({ children }: { children: React.ReactNode }) {
+    const { data: session, status } = useSession();
+    const router = useRouter();
     const [isDarkMode, setIsDarkMode] = useState(false);
+
+    if (status === "unauthenticated") {
+        router.push("/");
+    } else if ((session?.user.role === 'Colaborador')) {
+        router.push("/dashboard");
+    }
 
     useEffect(() => {
         const savedTheme = localStorage.getItem("theme");
