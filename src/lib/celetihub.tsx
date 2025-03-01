@@ -165,16 +165,18 @@ export const handleReenviarCLH = async (cleanedID: string, product_id: number, u
   try {
     const options = {
       method: "POST",
-      url: `${backend}/globoplay/resend-email/${cleanedID}`,
+      url: `${backend}/celetihub/resend-email`,
       headers: {
         apikey: `${apikey}`,
       },
       data: {
+        "document": cleanedID,
         "product_id": product_id
       }
     }
     
     const resendGP = await axios.request(options)
+    console.log('resendGP: ', resendGP)
 
       if (resendGP.status === 200) {
         const resultLog = await handleLog(username, cleanedID, product_name, "Reenviar link", "127.0.0.1" )
@@ -206,12 +208,12 @@ export const handleFixitGloboPlay = async (cleanedID: string, username: string, 
         message: "EMAIL_NOT_FOUND",
       };
     } else if (resInfo.status === 201) {
-      console.log('Caiu no: EMAIL_FOUND');
+      console.log('Encontrei: ', resInfo.data);
       const fixit = {
         method: "POST",
         url: `${backend}/celetihub/update`,
         data: {
-          email: resInfo.data.email,
+          email: resInfo.data.email.split(";")[0].trim().toLowerCase(),
           name: resInfo.data.nomeassinante,
           document: cleanedID,
           phone: "+55" + resInfo.data.telefones[0].ddd + resInfo.data.telefones[0].telefone,

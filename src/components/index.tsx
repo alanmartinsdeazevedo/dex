@@ -256,7 +256,7 @@ export default function Index(){
 
     if (svaSelect === 'Globoplay' || svaSelect === 'Telecine' || svaSelect === 'Premiere') {
       const resultFixit = await handleFixitGloboPlay(cleanedID, userName||'', services);
-      if (resultFixit === 201) {
+      if (resultFixit === 200) {
         showSuccessToast('Cliente atualizado! 🎉');
         showConfetti();
       } else if (resultFixit === 404) {

@@ -246,12 +246,12 @@ export const licenseUse = async (): Promise<number | null> => {
 
 export const fetchIssueCount = async () => {
   const ISSUE_TYPES_JQL: Record<string, string> = {
-    "Governança": 'project = GSTI AND resolution = Unresolved AND "grupo solucionador[dropdown]" = "Governança de TI"',
-    "Infraestrutura": 'project = GSTI AND resolution = Unresolved AND "grupo solucionador[dropdown]" = "Infraestrutura"',
-    "Controles Internos": 'project = GSTI AND resolution = Unresolved AND "grupo solucionador[dropdown]" = "Controles Internos"',
-    "Billing": 'project = GSTI AND resolution = Unresolved AND "grupo solucionador[dropdown]" = "Billing & Financial"',
-    "Massivo Total": 'project = GSTI AND resolution = Unresolved AND "gravidade do incidente[dropdown]" = "Massivo Total"',
-    "Massivo Parcial": 'project = GSTI AND resolution = Unresolved AND "gravidade do incidente[dropdown]" = "Massivo Parcial"',
+    "Governança": 'project = GSTI AND resolution = Unresolved AND status NOT IN ("Em validação", "Aguardando Controles Internos", "Aguardando Solicitante") AND "grupo solucionador[dropdown]" = "Governança de TI"',
+    "Infraestrutura": 'project = GSTI AND resolution = Unresolved AND status NOT IN ("Em validação", "Aguardando Controles Internos", "Aguardando Solicitante") AND "grupo solucionador[dropdown]" = "Infraestrutura"',
+    "Controles Internos": 'project = GSTI AND resolution = Unresolved AND status NOT IN ("Em validação", "Aguardando Controles Internos", "Aguardando Solicitante") AND "grupo solucionador[dropdown]" = "Controles Internos"',
+    "Billing": 'project = GSTI AND resolution = Unresolved AND status NOT IN ("Em validação", "Aguardando Controles Internos", "Aguardando Solicitante") AND "grupo solucionador[dropdown]" = "Billing & Financial"',
+    "Massivo Total": 'project = GSTI AND resolution = Unresolved AND status NOT IN ("Em validação", "Aguardando Controles Internos", "Aguardando Solicitante") AND "gravidade do incidente[dropdown]" = "Massivo Total"',
+    "Massivo Parcial": 'project = GSTI AND resolution = Unresolved AND status NOT IN ("Em validação", "Aguardando Controles Internos", "Aguardando Solicitante") AND "gravidade do incidente[dropdown]" = "Massivo Parcial"',
   };
 
   const results: Record<string, number> = {};
