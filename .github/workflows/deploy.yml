@@ -50,35 +50,15 @@ jobs:
         docker push ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
         docker push ${{ secrets.DOCKER_IMAGE_NAME }}:latest
 
-    - name: Install SSH client
-      run: sudo apt-get install -y openssh-client
-
-    - name: Set up SSH key
-      run: |
-        mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        sed -i '/^$/d' ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-        chmod 644 ~/.ssh/known_hosts
-
     # Deploy no servidor
     - name: Deploy Dex Frontend
       run: |
-        # Criar diretório SSH
-        mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
+        # Salvar a chave privada temporariamente
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+        chmod 600 /tmp/deploy_key
         
-        # Salvar a chave
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-        chmod 600 ~/.ssh/deploy_key
-
-        # Adicionar o host aos known_hosts (desabilitar verificação de host)
-        ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-        chmod 644 ~/.ssh/known_hosts
-
-        ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+        # Conectar ao servidor e executar deploy
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/deploy_key -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
           echo "🚀 Deploying Dex Frontend version ${{ steps.version.outputs.VERSION }}"
 
           docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}"
@@ -119,9 +99,6 @@ jobs:
             -e NEXT_PUBLIC_GATEWAY_URL="${{ vars.NEXT_PUBLIC_GATEWAY_URL }}" \
             --restart unless-stopped \
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
-          
-          # Limpar chave
-          rm -f ~/.ssh/deploy_key
 
           # Aguardar inicialização
           sleep 10
@@ -157,3 +134,6 @@ jobs:
           docker system prune -a -f --volumes
           docker images ${{ secrets.DOCKER_IMAGE_NAME }} --format "{{.Tag}}" | grep -E "^(v|main-)" | sort -V | head -n -5 | xargs -I {} docker rmi ${{ secrets.DOCKER_IMAGE_NAME }}:{} 2>/dev/null || true
         '
+        
+        # Limpar a chave
+        rm -f /tmp/deploy_key
