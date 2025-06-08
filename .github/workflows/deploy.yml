@@ -61,7 +61,7 @@ jobs:
         ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/deploy_key -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
           echo "🚀 Deploying Dex Frontend version ${{ steps.version.outputs.VERSION }}"
 
-          docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}"
+          docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}" --password-stdin
 
           # Pull da nova versão
           docker pull ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
