@@ -373,3 +373,24 @@ export const fetchGroupUsers = async (groupId: string, startAt: number = 0, maxR
       };
     }
 };
+
+export const fetchUserLdap = async (username: string) => {
+  try {
+    const response = await fetch(`${process.env.BACKEND_URL}/ad/user/${username}`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar usuário: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Erro ao buscar usuário:", error);
+    return null;
+  }
+}
+
+export const disableLdapUser = async (username: string) => {
+  
+}

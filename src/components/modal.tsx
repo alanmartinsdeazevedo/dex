@@ -5,8 +5,10 @@ import { Icon } from "@iconify/react";
 interface ConfirmModalProps {
   show: boolean;
   title?: string;
-  description: string;
+  description: React.ReactNode; // Mudança aqui: Element -> React.ReactNode
   confirmText?: string;
+  isProcessing?: boolean;
+  confirmButtonColor?: "blue" | "gray" | "red" | "green" | "yellow";
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -20,6 +22,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = "Cancelar",
   onConfirm,
   onCancel,
+  isProcessing,
+  confirmButtonColor = "blue",
 }) => {
   return (
     <Modal show={show} size="md" onClose={onCancel} popup>
@@ -35,14 +39,18 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <h3 className="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
             {title}
           </h3>
-          <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
+          <div className="mb-5 text-sm text-gray-500 dark:text-gray-400">
             {description}
-          </p>
+          </div>
           <div className="flex justify-center gap-4">
-            <Button color="blue" onClick={onConfirm}>
-              {confirmText}
+            <Button 
+              color={confirmButtonColor} 
+              onClick={onConfirm}
+              disabled={isProcessing}
+            >
+              {isProcessing ? "Processando..." : confirmText}
             </Button>
-            <Button color="gray" onClick={onCancel}>
+            <Button color="gray" onClick={onCancel} disabled={isProcessing}>
               {cancelText}
             </Button>
           </div>
