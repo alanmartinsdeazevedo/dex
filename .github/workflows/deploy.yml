@@ -81,10 +81,9 @@ jobs:
             -e ATLASSIAN_TOKEN="${{ secrets.ATLASSIAN_TOKEN }}" \
             -e AUTH_MICROSOFT_ENTRA_ID_ID="${{ secrets.AUTH_MICROSOFT_ENTRA_ID_ID }}" \
             -e AUTH_MICROSOFT_ENTRA_ID_SECRET="${{ secrets.AUTH_MICROSOFT_ENTRA_ID_SECRET }}" \
+            -e AUTH_MICROSOFT_ENTRA_ID_ISSUER="${{ vars.AUTH_MICROSOFT_ENTRA_ID_ISSUER }}" \
+            -e AUTH_MICROSOFT_ENTRA_ID_TENANT_ID="${{ secrets.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID }}" \
             -e AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
-            -e AZURE_AD_CLIENT_ID="${{ secrets.AZURE_AD_CLIENT_ID }}" \
-            -e AZURE_AD_CLIENT_SECRET="${{ secrets.AZURE_AD_CLIENT_SECRET }}" \
-            -e AZURE_AD_TENANT_ID="${{ secrets.AZURE_AD_TENANT_ID }}" \
             -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             -e NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}" \
             -e NEXT_PUBLIC_API_KEY="${{ secrets.NEXT_PUBLIC_API_KEY }}" \
