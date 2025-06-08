@@ -39,14 +39,14 @@ jobs:
     # Build imagem Docker
     - name: Build Docker image
       run: |
-        echo "🔨 Building PlayBee Frontend version ${{ steps.version.outputs.VERSION }}"
+        echo "🔨 Building Dex Frontend version ${{ steps.version.outputs.VERSION }}"
         docker build -f Dockerfile -t ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} .
         docker build -f Dockerfile -t ${{ secrets.DOCKER_IMAGE_NAME }}:latest .
 
     # Push Docker
     - name: Push Docker image
       run: |
-        echo "📤 Pushing PlayBee Frontend version ${{ steps.version.outputs.VERSION }}"
+        echo "📤 Pushing Dex Frontend version ${{ steps.version.outputs.VERSION }}"
         docker push ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
         docker push ${{ secrets.DOCKER_IMAGE_NAME }}:latest
 
@@ -66,7 +66,19 @@ jobs:
     # Deploy no servidor
     - name: Deploy Dex Frontend
       run: |
-        ssh -p ${{secrets.SSH_PORT}} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+        # Criar diretório SSH
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        
+        # Salvar a chave
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+
+        # Adicionar o host aos known_hosts (desabilitar verificação de host)
+        ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+        chmod 644 ~/.ssh/known_hosts
+
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
           echo "🚀 Deploying Dex Frontend version ${{ steps.version.outputs.VERSION }}"
 
           docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}"
@@ -107,6 +119,9 @@ jobs:
             -e NEXT_PUBLIC_GATEWAY_URL="${{ vars.NEXT_PUBLIC_GATEWAY_URL }}" \
             --restart unless-stopped \
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+          
+          # Limpar chave
+          rm -f ~/.ssh/deploy_key
 
           # Aguardar inicialização
           sleep 10
