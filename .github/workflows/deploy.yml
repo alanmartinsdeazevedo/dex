@@ -1,0 +1,144 @@
+name: Dex Frontend - Deploy
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    if: github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Extrair versão da tag
+    - name: Extract version
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/frontend-v*.*.* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/frontend-}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "🏷️ Deploying tagged version: $VERSION"
+        else
+          VERSION="main-$(echo $GITHUB_SHA | cut -c1-7)"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "🚀 Deploying main branch: $VERSION"
+        fi
+
+    - name: Log in to Docker Hub
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    # Build imagem Docker
+    - name: Build Docker image
+      run: |
+        echo "🔨 Building PlayBee Frontend version ${{ steps.version.outputs.VERSION }}"
+        docker build -f Dockerfile -t ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }} .
+        docker build -f Dockerfile -t ${{ secrets.DOCKER_IMAGE_NAME }}:latest .
+
+    # Push Docker
+    - name: Push Docker image
+      run: |
+        echo "📤 Pushing PlayBee Frontend version ${{ steps.version.outputs.VERSION }}"
+        docker push ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+        docker push ${{ secrets.DOCKER_IMAGE_NAME }}:latest
+
+    - name: Install SSH client
+      run: sudo apt-get install -y openssh-client
+
+    - name: Set up SSH key
+      run: |
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        sed -i '/^$/d' ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts
+
+    # Deploy no servidor
+    - name: Deploy Dex Frontend
+      run: |
+        ssh -p ${{secrets.SSH_PORT}} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+          echo "🚀 Deploying Dex Frontend version ${{ steps.version.outputs.VERSION }}"
+
+          docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}"
+
+          # Pull da nova versão
+          docker pull ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+
+          # Backup do container atual
+          docker stop dex-frontend || true
+          docker rename dex-frontend dex-frontend-backup-$(date +%s) || true
+
+          # Deploy da nova versão
+          docker run -d --name dex-frontend -p 3000:3000 \
+            -e NEXT_PUBLIC_API_URL="${{ vars.NEXT_PUBLIC_GATEWAY_URL }}" \
+            -e NEXT_PUBLIC_APP_NAME="dex" \
+            -e NEXT_PUBLIC_PWA_NAME="dex" \
+            -e NEXT_PUBLIC_PWA_SHORT_NAME="dex" \
+            -e NEXT_PUBLIC_APP_URL="${{ vars.NEXTAUTH_URL }}" \
+            -e PORT=3000 \
+            -e ATLASSIAN_TOKEN="${{ secrets.ATLASSIAN_TOKEN }}" \
+            -e AUTH_MICROSOFT_ENTRA_ID_ID="${{ secrets.AUTH_MICROSOFT_ENTRA_ID_ID }}" \
+            -e AUTH_MICROSOFT_ENTRA_ID_SECRET="${{ secrets.AUTH_MICROSOFT_ENTRA_ID_SECRET }}" \
+            -e AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
+            -e AZURE_AD_CLIENT_ID="${{ secrets.AZURE_AD_CLIENT_ID }}" \
+            -e AZURE_AD_CLIENT_SECRET="${{ secrets.AZURE_AD_CLIENT_SECRET }}" \
+            -e AZURE_AD_TENANT_ID="${{ secrets.AZURE_AD_TENANT_ID }}" \
+            -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            -e NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}" \
+            -e NEXT_PUBLIC_API_KEY="${{ secrets.NEXT_PUBLIC_API_KEY }}" \
+            -e NEXT_PUBLIC_APP_KEY="${{ secrets.NEXT_PUBLIC_APP_KEY }}" \
+            -e NEXT_PUBLIC_KEY_PLHWEBBY="${{ secrets.NEXT_PUBLIC_KEY_PLHWEBBY }}" \
+            -e NEXT_PUBLIC_SECRET_PLHWEBBY="${{ secrets.NEXT_PUBLIC_SECRET_PLHWEBBY }}" \
+            -e SUPERPLAYER_API_KEY="${{ secrets.SUPERPLAYER_API_KEY }}" \
+            -e ATLASSIAN_URL="${{ vars.ATLASSIAN_URL }}" \
+            -e BACKEND_URL="${{ vars.BACKEND_URL }}" \
+            -e NEXTAUTH_URL="${{ vars.NEXTAUTH_URL }}" \
+            -e NEXTAUTH_URL_INTERNAL="${{ vars.NEXTAUTH_URL_INTERNAL }}" \
+            -e NEXT_PUBLIC_GATEWAY_URL="${{ vars.NEXT_PUBLIC_GATEWAY_URL }}" \
+            --restart unless-stopped \
+            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+
+          # Aguardar inicialização
+          sleep 10
+
+          # Verificar se está funcionando
+          if docker ps | grep -q dex-frontend; then
+            echo "✅ Frontend Deploy successful! Version ${{ steps.version.outputs.VERSION }} is running"
+            
+            # Remover backup se tudo funcionou
+            docker rm dex-frontend-backup-* 2>/dev/null || true
+            
+            # Mostrar status
+            docker ps | grep dex-frontend
+            echo "📄 Frontend logs:"
+            docker logs dex-frontend --tail 15
+          else
+            echo "❌ Frontend Deploy failed! Rolling back..."
+            docker stop dex-frontend || true
+            docker rm dex-frontend || true
+
+            # Restaurar backup
+            BACKUP_CONTAINER=$(docker ps -a | grep dex-frontend-backup | head -1 | awk "{print \$1}")
+            if [ ! -z "$BACKUP_CONTAINER" ]; then
+              docker start $BACKUP_CONTAINER
+              docker rename $BACKUP_CONTAINER dex-frontend
+              echo "🔄 Frontend Rollback completed"
+            fi
+            exit 1
+          fi
+
+          # Limpeza de imagens antigas
+          echo "🧹 Cleaning old frontend images..."
+          docker system prune -a -f --volumes
+          docker images ${{ secrets.DOCKER_IMAGE_NAME }} --format "{{.Tag}}" | grep -E "^(v|main-)" | sort -V | head -n -5 | xargs -I {} docker rmi ${{ secrets.DOCKER_IMAGE_NAME }}:{} 2>/dev/null || true
+        '
