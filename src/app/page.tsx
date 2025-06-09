@@ -19,14 +19,14 @@ export default function Home() {
     <main>
      
      <Login/>
-     
+
     </main>
    );
+  } else if (session?.user.role !== 'Colaborador'){
+    router.push('/codex')
+    return <Loading/>
   } else {
     router.push('/dashboard')
     return <Loading/>
-
   }
-
-  
 }

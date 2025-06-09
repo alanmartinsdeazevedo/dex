@@ -1,6 +1,7 @@
 "use client";
 import './globals.css';
 import { SessionProvider } from "next-auth/react";
+import { UserProvider } from "@/src/context/UserContext";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-gray-900 dark:to-gray-800">
         <noscript>Habilite o JavaScript do seu navegador para poder visualizar este site.</noscript>
         <SessionProvider>
-          {children}
+          <UserProvider>
+            {children}
+          </UserProvider>
         </SessionProvider>
       </body>
     </html>

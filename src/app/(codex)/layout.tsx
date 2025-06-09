@@ -14,6 +14,8 @@ export default function DexLayout({ children }: { children: React.ReactNode }) {
         router.push("/");
     } else if ((session?.user.role === 'Colaborador')) {
         router.push("/dashboard");
+    } else {
+        router.push("/codex")
     }
 
     useEffect(() => {

@@ -1,5 +1,4 @@
 'use client'
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import { useEffect, useState, useTransition } from "react";
@@ -24,6 +23,10 @@ import {
   formatGroupName,
   convertADFileTime
 } from '@/src/utils/ad-helpers';
+
+// 🔐 Importar contexto de usuário e proteção
+import { useUser } from '@/src/context/UserContext';
+import { PermissionGate } from '@/src/components/RouteGuard';
 
 const showToast = (type: "success" | "warn" | "error", message: string) => {
   toast[type](message, {
@@ -59,7 +62,7 @@ interface LdapUserData {
 
 // Componente da Página
 export default function LdapSearchPage() {
-  const { data: session, status } = useSession();
+  const { user, isAuthenticated, isAdmin } = useUser(); // Usar contexto em vez de useSession
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -159,10 +162,15 @@ export default function LdapSearchPage() {
     });
   };
 
-  // 🏴‍☠️ Função para resetar senha (One Piece)
+  // 🏴‍☠️ Função para resetar senha (One Piece) - Apenas para Administradores
   const handleResetPassword = async () => {
     if (!ldapUser) {
       showToast("error", "Usuário não selecionado para reset de senha.");
+      return;
+    }
+
+    if (!isAdmin()) {
+      showToast("error", "Apenas administradores podem resetar senhas.");
       return;
     }
 
@@ -189,10 +197,15 @@ export default function LdapSearchPage() {
     });
   };
 
-  // 🧪 Função para testar senha
+  // 🧪 Função para testar senha - Apenas para Administradores
   const handleTestPassword = async () => {
     if (!ldapUser || !testPassword.trim()) {
       showToast("warn", "Informe uma senha para testar.");
+      return;
+    }
+
+    if (!isAdmin()) {
+      showToast("error", "Apenas administradores podem testar senhas.");
       return;
     }
 
@@ -217,10 +230,15 @@ export default function LdapSearchPage() {
     });
   };
 
-  // 🚀 Função para reset + teste automático
+  // 🚀 Função para reset + teste automático - Apenas para Administradores
   const handleResetAndTest = async () => {
     if (!ldapUser) {
       showToast("error", "Usuário não selecionado.");
+      return;
+    }
+
+    if (!isAdmin()) {
+      showToast("error", "Apenas administradores podem resetar e testar senhas.");
       return;
     }
 
@@ -261,12 +279,8 @@ export default function LdapSearchPage() {
   const accountStatus = ldapUser ? getUserAccountStatus(ldapUser.userAccountControl) : null;
 
   // Proteção de Rota e Loading Inicial
-  if (status === "loading") {
+  if (!isAuthenticated || !user) {
     return <Loading />;
-  }
-  if (!session) {
-    router.push("/");
-    return null;
   }
 
   return (
@@ -339,49 +353,57 @@ export default function LdapSearchPage() {
 
                   {/* Botões de Ação */}
                   <div className="flex flex-wrap gap-2">
-                    {/* Reset de Senha One Piece */}
-                    <Button
-                      color="warning"
-                      size="sm"
-                      onClick={() => setShowResetPasswordModal(true)}
-                      disabled={accountStatus?.status === 'Desabilitado' || isResetting || isPending}
-                    >
-                      <Icon icon="mdi:key-variant" className="mr-2 h-4 w-4"/>
-                      Reset Senha
-                    </Button>
+                    {/* Reset de Senha - Apenas para Administradores */}
+                    <PermissionGate requireRole="Administrador">
+                      <Button
+                        color="warning"
+                        size="sm"
+                        onClick={() => setShowResetPasswordModal(true)}
+                        disabled={accountStatus?.status === 'Desabilitado' || isResetting || isPending}
+                      >
+                        <Icon icon="mdi:key-variant" className="mr-2 h-4 w-4"/>
+                        Reset Senha
+                      </Button>
+                    </PermissionGate>
 
-                    {/* Teste de Senha */}
-                    {/* <Button
-                      color="warning"
-                      size="sm"
-                      onClick={() => setShowTestPasswordModal(true)}
-                      disabled={accountStatus?.status === 'Desabilitado' || isTesting || isPending}
-                    >
-                      <Icon icon="mdi:shield-check" className="mr-2 h-4 w-4"/>
-                      🧪 Testar Senha
-                    </Button> */}
+                    {/* Teste de Senha - Apenas para Administradores (comentado) */}
+                    {/* <PermissionGate requireRole="Administrador">
+                      <Button
+                        color="warning"
+                        size="sm"
+                        onClick={() => setShowTestPasswordModal(true)}
+                        disabled={accountStatus?.status === 'Desabilitado' || isTesting || isPending}
+                      >
+                        <Icon icon="mdi:shield-check" className="mr-2 h-4 w-4"/>
+                        🧪 Testar Senha
+                      </Button>
+                    </PermissionGate> */}
 
-                    {/* Reset + Teste Automático */}
-                    {/* <Button
-                      color="success"
-                      size="sm"
-                      onClick={handleResetAndTest}
-                      disabled={accountStatus?.status === 'Desabilitado' || isResetting || isPending}
-                    >
-                      <Icon icon="mdi:autorenew" className="mr-2 h-4 w-4"/>
-                      🚀 Reset + Teste
-                    </Button> */}
+                    {/* Reset + Teste Automático - Apenas para Administradores (comentado) */}
+                    {/* <PermissionGate requireRole="Administrador">
+                      <Button
+                        color="success"
+                        size="sm"
+                        onClick={handleResetAndTest}
+                        disabled={accountStatus?.status === 'Desabilitado' || isResetting || isPending}
+                      >
+                        <Icon icon="mdi:autorenew" className="mr-2 h-4 w-4"/>
+                        🚀 Reset + Teste
+                      </Button>
+                    </PermissionGate> */}
 
                     {/* Desativar Usuário */}
-                    <Button
-                      color="failure"
-                      size="sm"
-                      onClick={() => setShowDisableConfirmModal(true)}
-                      disabled={accountStatus?.status === 'Desabilitado' || isDisabling || isPending}
-                    >
-                      <Icon icon="mdi:account-cancel-outline" className="mr-2 h-4 w-4"/>
-                      {accountStatus?.status === 'Desabilitado' ? 'Já Desativado' : 'Desativar'}
-                    </Button>
+                    <PermissionGate requireAnyRole={['Administrador', 'Service Desk']}>
+                      <Button
+                        color="failure"
+                        size="sm"
+                        onClick={() => setShowDisableConfirmModal(true)}
+                        disabled={accountStatus?.status === 'Desabilitado' || isDisabling || isPending}
+                      >
+                        <Icon icon="mdi:account-cancel-outline" className="mr-2 h-4 w-4"/>
+                        {accountStatus?.status === 'Desabilitado' ? 'Já Desativado' : 'Desativar'}
+                      </Button>
+                    </PermissionGate>
                   </div>
                 </div>
 
@@ -404,50 +426,54 @@ export default function LdapSearchPage() {
                   </div>
                 )}
 
-                {/* Senha Gerada */}
-                {lastGeneratedPassword && (
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                      Senha Gerada:
-                    </h3>
-                    <code className="text-lg font-mono bg-white dark:bg-gray-800 px-3 py-2 rounded border">
-                      {lastGeneratedPassword}
-                    </code>
-                  </div>
-                )}
+                {/* Senha Gerada - Apenas para Administradores */}
+                <PermissionGate requireRole="Administrador">
+                  {lastGeneratedPassword && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                        Senha Gerada:
+                      </h3>
+                      <code className="text-lg font-mono bg-white dark:bg-gray-800 px-3 py-2 rounded border">
+                        {lastGeneratedPassword}
+                      </code>
+                    </div>
+                  )}
+                </PermissionGate>
 
-                {/* Resultado do Teste */}
-                {testResult && (
-                  <div className={`p-4 border rounded-lg ${
-                    testResult.success 
-                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                  }`}>
-                    <h3 className={`font-medium mb-2 ${
+                {/* Resultado do Teste - Apenas para Administradores */}
+                <PermissionGate requireRole="Administrador">
+                  {testResult && (
+                    <div className={`p-4 border rounded-lg ${
                       testResult.success 
-                        ? 'text-green-900 dark:text-green-100' 
-                        : 'text-red-900 dark:text-red-100'
+                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
                     }`}>
-                      🧪 Resultado do Teste de Autenticação:
-                    </h3>
-                    <p className="text-sm">
-                      <strong>Status:</strong> {testResult.success ? '✅ Sucesso' : '❌ Falhou'}
-                    </p>
-                    <p className="text-sm">
-                      <strong>Mensagem:</strong> {testResult.message}
-                    </p>
-                    {testResult.authTime && (
+                      <h3 className={`font-medium mb-2 ${
+                        testResult.success 
+                          ? 'text-green-900 dark:text-green-100' 
+                          : 'text-red-900 dark:text-red-100'
+                      }`}>
+                        🧪 Resultado do Teste de Autenticação:
+                      </h3>
                       <p className="text-sm">
-                        <strong>Tempo:</strong> {testResult.authTime}ms
+                        <strong>Status:</strong> {testResult.success ? '✅ Sucesso' : '❌ Falhou'}
                       </p>
-                    )}
-                    {testResult.error && (
                       <p className="text-sm">
-                        <strong>Erro:</strong> {testResult.error}
+                        <strong>Mensagem:</strong> {testResult.message}
                       </p>
-                    )}
-                  </div>
-                )}
+                      {testResult.authTime && (
+                        <p className="text-sm">
+                          <strong>Tempo:</strong> {testResult.authTime}ms
+                        </p>
+                      )}
+                      {testResult.error && (
+                        <p className="text-sm">
+                          <strong>Erro:</strong> {testResult.error}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </PermissionGate>
 
                 {/* Informações Detalhadas do Usuário */}
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-700 dark:text-gray-300">
@@ -562,83 +588,87 @@ export default function LdapSearchPage() {
         confirmButtonColor="red"
       />
 
-      {/* Modal para Reset de Senha One Piece */}
-      <ConfirmModal
-        show={showResetPasswordModal}
-        title="Reset de Senha"
-        description={
-          <div className="space-y-4">
-            <p>Resetar senha para <strong>{ldapUser?.displayName}</strong> ({ldapUser?.sAMAccountName})?</p>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Senha Personalizada (opcional):
-              </label>
-              <input
-                type="password"
-                value={customPassword}
-                onChange={(e) => setCustomPassword(e.target.value)}
-                placeholder="Deixe vazio para gerar senha..."
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Se vazio, será gerada uma senha aleatória.
-              </p>
+      {/* Modal para Reset de Senha - Apenas para Administradores */}
+      <PermissionGate requireRole="Administrador">
+        <ConfirmModal
+          show={showResetPasswordModal}
+          title="Reset de Senha"
+          description={
+            <div className="space-y-4">
+              <p>Resetar senha para <strong>{ldapUser?.displayName}</strong> ({ldapUser?.sAMAccountName})?</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Senha Personalizada (opcional):
+                </label>
+                <input
+                  type="password"
+                  value={customPassword}
+                  onChange={(e) => setCustomPassword(e.target.value)}
+                  placeholder="Deixe vazio para gerar senha..."
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Se vazio, será gerada uma senha aleatória.
+                </p>
+              </div>
             </div>
-          </div>
-        }
-        confirmText={customPassword ? "Definir Senha" : "Resetar Senha"}
-        cancelText="Cancelar"
-        onConfirm={handleResetPassword}
-        onCancel={() => {
-          setShowResetPasswordModal(false);
-          setCustomPassword('');
-        }}
-        isProcessing={isResetting}
-        confirmButtonColor="blue"
-      />
+          }
+          confirmText={customPassword ? "Definir Senha" : "Resetar Senha"}
+          cancelText="Cancelar"
+          onConfirm={handleResetPassword}
+          onCancel={() => {
+            setShowResetPasswordModal(false);
+            setCustomPassword('');
+          }}
+          isProcessing={isResetting}
+          confirmButtonColor="blue"
+        />
+      </PermissionGate>
 
-      {/* Modal para Teste de Senha */}
-      <ConfirmModal
-        show={showTestPasswordModal}
-        title="🧪 Teste de Autenticação"
-        description={
-          <div className="space-y-4">
-            <p>Testar autenticação para <strong>{ldapUser?.displayName}</strong> ({ldapUser?.sAMAccountName})?</p>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Senha para Testar:
-              </label>
-              <input
-                type="password"
-                value={testPassword}
-                onChange={(e) => setTestPassword(e.target.value)}
-                placeholder="Digite a senha para testar..."
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                autoFocus
-              />
-              {lastGeneratedPassword && (
-                <button
-                  type="button"
-                  onClick={() => setTestPassword(lastGeneratedPassword)}
-                  className="mt-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                >
-                  Usar última senha gerada: {lastGeneratedPassword}
-                </button>
-              )}
+      {/* Modal para Teste de Senha - Apenas para Administradores */}
+      <PermissionGate requireRole="Administrador">
+        <ConfirmModal
+          show={showTestPasswordModal}
+          title="🧪 Teste de Autenticação"
+          description={
+            <div className="space-y-4">
+              <p>Testar autenticação para <strong>{ldapUser?.displayName}</strong> ({ldapUser?.sAMAccountName})?</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Senha para Testar:
+                </label>
+                <input
+                  type="password"
+                  value={testPassword}
+                  onChange={(e) => setTestPassword(e.target.value)}
+                  placeholder="Digite a senha para testar..."
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  autoFocus
+                />
+                {lastGeneratedPassword && (
+                  <button
+                    type="button"
+                    onClick={() => setTestPassword(lastGeneratedPassword)}
+                    className="mt-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                  >
+                    Usar última senha gerada: {lastGeneratedPassword}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        }
-        confirmText="🧪 Testar Autenticação"
-        cancelText="Cancelar"
-        onConfirm={handleTestPassword}
-        onCancel={() => {
-          setShowTestPasswordModal(false);
-          setTestPassword('');
-          setTestResult(null);
-        }}
-        isProcessing={isTesting}
-        confirmButtonColor="yellow"
-      />
+          }
+          confirmText="🧪 Testar Autenticação"
+          cancelText="Cancelar"
+          onConfirm={handleTestPassword}
+          onCancel={() => {
+            setShowTestPasswordModal(false);
+            setTestPassword('');
+            setTestResult(null);
+          }}
+          isProcessing={isTesting}
+          confirmButtonColor="yellow"
+        />
+      </PermissionGate>
 
       <ToastContainer />
     </>
