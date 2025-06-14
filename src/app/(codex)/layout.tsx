@@ -10,13 +10,20 @@ export default function DexLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    if (status === "unauthenticated") {
-        router.push("/");
-    } else if ((session?.user.role === 'Colaborador')) {
-        router.push("/dashboard");
-    } else {
-        router.push("/codex")
-    }
+    useEffect(() => {
+        if (status === "loading") return;
+
+        if (status === "unauthenticated") {
+            router.push("/");
+            return;
+        }
+
+        if (session?.user.role === 'Colaborador') {
+            router.push("/dashboard");
+            return;
+        }
+
+    }, [status, session, router]);
 
     useEffect(() => {
         const savedTheme = localStorage.getItem("theme");
@@ -37,6 +44,16 @@ export default function DexLayout({ children }: { children: React.ReactNode }) {
         document.documentElement.classList.toggle("dark", !isDarkMode);
         localStorage.setItem("theme", newTheme);
     };
+
+    // Mostrar loading enquanto verifica autenticação
+    if (status === "loading") {
+        return <Loading />;
+    }
+
+    // Se não autenticado ou colaborador, não renderizar nada (redirecionamento em andamento)
+    if (status === "unauthenticated" || session?.user.role === 'Colaborador') {
+        return <Loading />;
+    }
     
     return (
         <>
