@@ -1,5 +1,3 @@
-// ==================== TIPOS ====================
-
 export interface LicenseUsageData {
   product: string;
   currentUsage: number;
@@ -64,6 +62,45 @@ export interface AtlassianGroup {
   };
 }
 
+// ==================== INTERFACES ADICIONAIS ====================
+
+export interface ValidationResponse {
+  isValid: boolean;
+  exists: boolean;
+  message?: string;
+}
+
+export interface CreateGroupDto {
+  group_id: string;
+  group_name: string;
+  description?: string;
+  order?: number;
+}
+
+export interface UpdateGroupDto {
+  group_name?: string;
+  description?: string;
+  order?: number;
+  is_active?: boolean;
+}
+
+export interface GroupFilters {
+  isActive?: boolean;
+  search?: string;
+  orderBy?: "order" | "name" | "created_at";
+  orderDirection?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+}
+
+export interface InviteUserDto {
+  email: string;
+}
+
+export interface SearchUserQueryDto {
+  query: string;
+}
+
 // ==================== CONSTANTES ====================
 
 export const ATLASSIAN_PRODUCTS = {
@@ -79,7 +116,39 @@ export const LICENSE_THRESHOLDS = {
 
 export const DEFAULT_TOTAL_LICENSES = 500;
 
-// ==================== FUNÇÕES UTILITÁRIAS ====================
+export const VALIDATION_RULES = {
+  GROUP_NAME: {
+    MIN_LENGTH: 2,
+    MAX_LENGTH: 100,
+    PATTERN: /^[a-zA-Z0-9\s\-_]+$/,
+  },
+  GROUP_DESCRIPTION: {
+    MAX_LENGTH: 500,
+  },
+  EMAIL: {
+    PATTERN: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  },
+  UUID: {
+    PATTERN: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  },
+} as const;
+
+export const ERROR_MESSAGES = {
+  REQUIRED_FIELD: 'Este campo é obrigatório',
+  INVALID_EMAIL: 'Email inválido',
+  INVALID_UUID: 'UUID inválido',
+  GROUP_NAME_TOO_SHORT: `Nome deve ter pelo menos ${VALIDATION_RULES.GROUP_NAME.MIN_LENGTH} caracteres`,
+  GROUP_NAME_TOO_LONG: `Nome deve ter no máximo ${VALIDATION_RULES.GROUP_NAME.MAX_LENGTH} caracteres`,
+  GROUP_NAME_INVALID_CHARS: 'Nome contém caracteres inválidos',
+  GROUP_DESCRIPTION_TOO_LONG: `Descrição deve ter no máximo ${VALIDATION_RULES.GROUP_DESCRIPTION.MAX_LENGTH} caracteres`,
+  GROUP_NAME_EXISTS: 'Este nome de grupo já está em uso',
+  GROUP_ID_EXISTS: 'Este ID do Atlassian já está em uso',
+  NETWORK_ERROR: 'Erro de conexão. Tente novamente.',
+  UNAUTHORIZED: 'Não autorizado. Faça login novamente.',
+  SERVER_ERROR: 'Erro interno do servidor. Tente novamente mais tarde.',
+} as const;
+
+// ==================== FUNÇÕES PRINCIPAIS ====================
 
 /**
  * ✅ Calcula estatísticas de licenças
@@ -151,8 +220,7 @@ export function shouldRefreshData(lastUpdate: Date, intervalMinutes: number = 5)
  * ✅ Valida se um email é válido
  */
 export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  return VALIDATION_RULES.EMAIL.PATTERN.test(email);
 }
 
 /**
@@ -225,4 +293,191 @@ export function buildApiUrl(baseUrl: string, endpoint: string, params?: Record<s
   }
   
   return url.toString();
+}
+
+// ==================== FUNÇÕES UTILITÁRIAS ADICIONAIS ====================
+
+/**
+ * Retorna cor CSS baseada no status
+ */
+export function getStatusColorCSS(status: "normal" | "warning" | "critical"): string {
+  switch (status) {
+    case "normal":
+      return "text-green-600 bg-green-100";
+    case "warning":
+      return "text-yellow-600 bg-yellow-100";
+    case "critical":
+      return "text-red-600 bg-red-100";
+    default:
+      return "text-gray-600 bg-gray-100";
+  }
+}
+
+/**
+ * Formata exibição de licenças
+ */
+export function formatLicenseDisplaySimple(stats: LicenseStats): string {
+  return `${stats.used}/${stats.total} (${stats.usagePercentage}%)`;
+}
+
+/**
+ * Formata data para exibição
+ */
+export function formatDate(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return dateObj.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/**
+ * Formata nome para exibição
+ */
+export function formatDisplayName(name: string): string {
+  return name
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
+ * Gera UUID simples (para fins de exemplo - use uma biblioteca apropriada em produção)
+ */
+export function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+/**
+ * Debounce function para otimizar busca
+ */
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(null, args), delay);
+  };
+}
+
+/**
+ * Sanitiza string para uso em URLs
+ */
+export function sanitizeForUrl(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * Verifica se string é UUID válido
+ */
+export function isValidUUID(uuid: string): boolean {
+  return VALIDATION_RULES.UUID.PATTERN.test(uuid);
+}
+
+/**
+ * Trunca texto com ellipsis
+ */
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 3) + '...';
+}
+
+/**
+ * Capitaliza primeira letra
+ */
+export function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Converte camelCase para snake_case
+ */
+export function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+/**
+ * Converte snake_case para camelCase
+ */
+export function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+// ==================== FUNÇÕES DE VALIDAÇÃO ====================
+
+/**
+ * Valida nome do grupo
+ */
+export function validateGroupName(name: string): string | null {
+  if (!name.trim()) {
+    return ERROR_MESSAGES.REQUIRED_FIELD;
+  }
+  
+  if (name.length < VALIDATION_RULES.GROUP_NAME.MIN_LENGTH) {
+    return ERROR_MESSAGES.GROUP_NAME_TOO_SHORT;
+  }
+  
+  if (name.length > VALIDATION_RULES.GROUP_NAME.MAX_LENGTH) {
+    return ERROR_MESSAGES.GROUP_NAME_TOO_LONG;
+  }
+  
+  if (!VALIDATION_RULES.GROUP_NAME.PATTERN.test(name)) {
+    return ERROR_MESSAGES.GROUP_NAME_INVALID_CHARS;
+  }
+  
+  return null;
+}
+
+/**
+ * Valida descrição do grupo
+ */
+export function validateGroupDescription(description: string): string | null {
+  if (description.length > VALIDATION_RULES.GROUP_DESCRIPTION.MAX_LENGTH) {
+    return ERROR_MESSAGES.GROUP_DESCRIPTION_TOO_LONG;
+  }
+  
+  return null;
+}
+
+/**
+ * Valida UUID
+ */
+export function validateUUID(uuid: string): string | null {
+  if (!uuid.trim()) {
+    return ERROR_MESSAGES.REQUIRED_FIELD;
+  }
+  
+  if (!VALIDATION_RULES.UUID.PATTERN.test(uuid)) {
+    return ERROR_MESSAGES.INVALID_UUID;
+  }
+  
+  return null;
+}
+
+/**
+ * Valida email
+ */
+export function validateEmail(email: string): string | null {
+  if (!email.trim()) {
+    return ERROR_MESSAGES.REQUIRED_FIELD;
+  }
+  
+  if (!VALIDATION_RULES.EMAIL.PATTERN.test(email)) {
+    return ERROR_MESSAGES.INVALID_EMAIL;
+  }
+  
+  return null;
 }

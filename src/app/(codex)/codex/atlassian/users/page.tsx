@@ -336,7 +336,7 @@ export default function AtlassianUsersPage() {
         </div>
 
         {/* ✅ Resultados da busca */}
-        <div className="w-full max-w-4xl px-4">
+        <div className="w-full px-4">
           
           {/* Loading da busca */}
           {isSearching && (
