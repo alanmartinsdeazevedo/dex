@@ -359,10 +359,10 @@ export default function SystemUsersPage() {
         {/* Header da Página */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-white dark:text-white">
               Usuários do Sistema
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-300 dark:text-gray-400">
               Gerencie os usuários internos do sistema Dex
             </p>
           </div>

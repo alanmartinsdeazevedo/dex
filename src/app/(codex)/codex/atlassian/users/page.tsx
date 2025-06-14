@@ -3,19 +3,39 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import { ConfirmModal } from "@/src/components/modal";
-import { searchUser, handleAssign, handleInvite, handleSuspend, suspendAllUsers, licenseUse, fetchAllGroups } from '@/src/lib/atlassian';
-import { Modal, Button } from "flowbite-react";
-import { useEffect, useState, useMemo } from "react";
+import { Modal, Button, Badge, TextInput, Select, Label } from "flowbite-react";
+import { useEffect, useState, FormEvent } from "react";
 import 'react-toastify/dist/ReactToastify.css';
 import confetti from 'canvas-confetti';
 import Loading from "@/src/components/loading";
-import { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
 import Image from 'next/image';
-import { Group, GroupSelectList, GroupUser } from "@/src/types/group";
 import { Icon } from "@iconify/react/dist/iconify.js";
 
-const showToast = (type: "success" | "warn" | "error", message: string) => {
+// ✅ Importar as novas funções do backend
+import { 
+  searchAtlassianUser, 
+  inviteUserToAtlassian, 
+  fetchAtlassianGroups,
+  fetchLicenseUsage
+} from '@/src/actions/atlassian';
+
+// ✅ Importar tipos e utilitários
+import {
+  AtlassianUser,
+  AtlassianGroup,
+  calculateLicenseStats,
+  formatLicenseDisplay,
+  getStatusColor,
+  DEFAULT_TOTAL_LICENSES
+} from '@/src/utils/atlassian';
+
+// ✅ Importar contexto do usuário
+import { useUser } from '@/src/context/UserContext';
+
+const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+
+const showToast = (type: "success" | "warn" | "error" | "info", message: string) => {
   toast[type](message, {
     position: "bottom-right",
     autoClose: 6000,
@@ -38,369 +58,498 @@ const showConfetti = () => {
   });
 };
 
-interface UserData {
-  displayName: string;
-  accountType: string;
-  emailAddress: string;
-  active: boolean;
-  avatarUrls: {
-    "48x48": string;
-    "24x24": string;
-    "16x16": string;
-  }
+interface LicenseData {
+  available: number;
+  used: number;
 }
 
-interface GroupData {
-  id: string;
-  name: string;
-  type: string;
-}
+export default function AtlassianUsersPage() {
+  const { data: session, status } = useSession();
+  const { user } = useUser();
+  const router = useRouter();
 
-interface Groups {
-  groupId: string;
-  name: string;
-  description: string;
-}
-
-export default function Home() {
-  const {data: session, status} = useSession()
-  const router = useRouter()
-  const [openInviteUserModal, setOpenInviteUserModal] = useState(false);
-  const [openAddToGroupModal, setAddToGroupModal] = useState(false);
-  const [openDeactivateUserModal, setDeactivateUserModal] = useState(false);
-  const [search, setSearch] = useState<UserData | null>();
+  // Estados principais
+  const [email, setEmail] = useState('');
+  const [searchedUser, setSearchedUser] = useState<AtlassianUser | null>(null);
+  const [userGroups, setUserGroups] = useState<any[]>([]);
+  const [availableGroups, setAvailableGroups] = useState<AtlassianGroup[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>("");
+  
+  // Estados de interface
+  const [isSearching, setIsSearching] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [outOfDirectory, setOutOfDirectory] = useState(false);
-  const [email, setEmail] = useState('');
-  const [groups, setGroups] = useState<GroupSelectList[]>([]);
-  const [userGroups, setUserGroups] = useState<GroupData[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<string>("");
-  const [message, setMessage] = useState('');
-  const [licenseData, setLicenseData] = useState({ used: 0, available: 0 });
-  const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+  const [searchError, setSearchError] = useState<string | null>(null);
+  
+  // Estados de modais
+  const [openInviteUserModal, setOpenInviteUserModal] = useState(false);
+  const [openAddToGroupModal, setOpenAddToGroupModal] = useState(false);
+  const [openDeactivateUserModal, setOpenDeactivateUserModal] = useState(false);
+  
+  // Estados de ações
+  const [isInviting, setIsInviting] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
+  
+  // Estados de licenças
+  const [licenseData, setLicenseData] = useState<LicenseData>({ used: 0, available: 0 });
+  const [isLoadingLicenses, setIsLoadingLicenses] = useState(true);
 
-  const groupList: GroupSelectList[] = [
-    {"id": "1", "groupId": "db32e550-152b-4ce2-abbf-b4bd98a6844a", "groupName": "Públicos", "description": "em desenvolvimento", "order": 1, "createdAt": "2024-01-01T12:00:00Z"},
-    {"id": "2", "groupId": "9cdfaec0-4bdb-4b75-ac9a-1189efcb6993", "groupName": "Aprovadores", "description": "em desenvolvimento", "order": 2, "createdAt": "2024-01-02T12:00:00Z"},
-    {"id": "3", "groupId": "6043a622-a670-4dc5-abef-60c6d9340976", "groupName": "BS", "description": "em desenvolvimento", "order": 3, "createdAt": "2024-01-03T12:00:00Z"},
-    {"id": "4", "groupId": "aac2baad-453f-484c-8bef-3fa10d6b4970", "groupName": "CONT", "description": "em desenvolvimento", "order": 4, "createdAt": "2024-01-04T12:00:00Z"},
-    {"id": "5", "groupId": "cf56d3f2-362c-4648-afc9-6fe9edf162f9", "groupName": "DE", "description": "em desenvolvimento", "order": 5, "createdAt": "2024-01-05T12:00:00Z"},
-    {"id": "6", "groupId": "3d517ec3-9e59-458d-912d-1ce49e7fcba5", "groupName": "ENGT", "description": "em desenvolvimento", "order": 6, "createdAt": "2024-01-06T12:00:00Z"},
-    {"id": "7", "groupId": "be0af1c1-0dac-49ac-8991-c4cf6bc33f63", "groupName": "FAC", "description": "em desenvolvimento", "order": 7, "createdAt": "2024-01-07T12:00:00Z"},
-    {"id": "8", "groupId": "060c2d66-f5eb-429a-94eb-cf19448a11ea", "groupName": "FEF", "description": "em desenvolvimento", "order": 8, "createdAt": "2024-01-08T12:00:00Z"},
-    {"id": "9", "groupId": "949d710e-a9af-4bf4-adb6-98bfff14e097", "groupName": "FIN", "description": "em desenvolvimento", "order": 9, "createdAt": "2024-01-09T12:00:00Z"},
-    {"id": "10", "groupId": "f9a853f3-8e3a-44be-ae4e-7b316b9e0239", "groupName": "GDD", "description": "em desenvolvimento", "order": 10, "createdAt": "2024-01-10T12:00:00Z"},
-    {"id": "11", "groupId": "da05199e-d62c-4342-9b9b-9e497f860ad2", "groupName": "GMUD", "description": "em desenvolvimento", "order": 11, "createdAt": "2024-01-11T12:00:00Z"},
-    {"id": "12", "groupId": "cf86d3cf-fdf3-4a00-a769-3e7d40000610", "groupName": "GMUDT", "description": "em desenvolvimento", "order": 12, "createdAt": "2024-01-12T12:00:00Z"},
-    {"id": "13", "groupId": "55383512-5870-4c97-b0a0-4bc7b1a334a7", "groupName": "GSOP", "description": "em desenvolvimento", "order": 13, "createdAt": "2024-01-13T12:00:00Z"},
-    {"id": "14", "groupId": "5eef44e5-533e-452d-8afd-9ab8d7a0a207", "groupName": "GSTI", "description": "em desenvolvimento", "order": 14, "createdAt": "2024-01-14T12:00:00Z"},
-    {"id": "15", "groupId": "e14a1076-e7b7-440a-8114-1f478167bc98", "groupName": "MEEF", "description": "em desenvolvimento", "order": 15, "createdAt": "2024-01-15T12:00:00Z"},
-    {"id": "16", "groupId": "b6b03ceb-0029-4849-b6b6-3d934d21c88c", "groupName": "RUIET", "description": "em desenvolvimento", "order": 16, "createdAt": "2024-01-16T12:00:00Z"},
-    {"id": "17", "groupId": "aa826844-690a-4a34-b47c-0d6b110d9c52", "groupName": "RUIET Resolvedor", "description": "em desenvolvimento", "order": 17, "createdAt": "2024-01-17T12:00:00Z"},
-    {"id": "18", "groupId": "16c83fec-ab80-4fba-8053-8cab7e84270c", "groupName": "RHB Resolvedor", "description": "em desenvolvimento", "order": 18, "createdAt": "2024-01-18T12:00:00Z"},
-    {"id": "19", "groupId": "69b4239b-7473-4cec-97b8-f6469fce5f51", "groupName": "RHS Resolvedor", "description": "em desenvolvimento", "order": 19, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "20", "groupId": "499d0950-349e-4a24-8c62-c59944377554", "groupName": "BS Resolvedor", "description": "em desenvolvimento", "order": 20, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "21", "groupId": "828ff6f4-cf8a-4a67-b879-77d21e6e96bb", "groupName": "ENGT Resolvedor", "description": "em desenvolvimento", "order": 21, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "22", "groupId": "c8f09917-c983-4ee4-89c1-017eab4cdc20", "groupName": "FAC Resolvedor", "description": "em desenvolvimento", "order": 22, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "23", "groupId": "3dfc3e70-af6f-4997-9a2b-3322daaa55f2", "groupName": "FEF Resolvedor", "description": "em desenvolvimento", "order": 23, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "24", "groupId": "190befbf-2b30-4b12-b401-73669acc1be9", "groupName": "FIN Resolvedor", "description": "em desenvolvimento", "order": 24, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "25", "groupId": "9bf6cb3b-0b0f-42dd-a738-2f82079d31e7", "groupName": "GSTI Resolvedor", "description": "em desenvolvimento", "order": 25, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "26", "groupId": "513fcad8-b73f-4709-b202-d8436ff21c58", "groupName": "GSTI RH", "description": "em desenvolvimento", "order": 26, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "27", "groupId": "c5b88a13-0f89-4827-a982-fcc5dceae5d4", "groupName": "GMUDT Resolvedor", "description": "em desenvolvimento", "order": 27, "createdAt": "2024-01-19T12:00:00Z"},
-    {"id": "28", "groupId": "9b2f59e2-3155-4b0b-b1eb-a7c559cc8144", "groupName": "GSOP Resolvedor", "description": "em desenvolvimento", "order": 28, "createdAt": "2024-01-19T12:00:00Z"},
-  ];
-
-  const fetchLicenseData = async () => {
+  // ✅ Carregar grupos disponíveis
+  const loadAvailableGroups = async () => {
     try {
-      const response = await licenseUse() || 0;
-      const available = Math.max(0, 400 - response); 
-      setLicenseData({ available: available, used: response });
+      const result = await fetchAtlassianGroups({
+        isActive: true,
+        orderBy: 'order',
+        orderDirection: 'asc',
+        limit: 100
+      });
+
+      if (result.success && result.data) {
+        setAvailableGroups(result.data);
+      } else {
+        console.error('Erro ao carregar grupos:', result.message);
+        setAvailableGroups([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar grupos:', error);
+      setAvailableGroups([]);
+    }
+  };
+
+  // ✅ Carregar dados de licenças
+  const loadLicenseData = async () => {
+    try {
+      setIsLoadingLicenses(true);
+      const result = await fetchLicenseUsage();
+      
+      if (result.success && result.data) {
+        const stats = calculateLicenseStats(result.data, DEFAULT_TOTAL_LICENSES);
+        setLicenseData({ 
+          used: stats.used, 
+          available: stats.available 
+        });
+      }
     } catch (error) {
       console.error("Erro ao buscar dados de licença:", error);
       showToast("error", "Erro ao carregar dados de licença.");
-      setLicenseData({ available: 0, used: 0 });
+    } finally {
+      setIsLoadingLicenses(false);
     }
   };
 
-  useEffect(() => {
-    setGroups(groupList);
-    fetchLicenseData();
-  }, []);
-
-  const handleSearch = async (e: React.FormEvent) => {
-      e.preventDefault()
+  // ✅ Buscar usuário no Atlassian
+  const handleSearchUser = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    if (!email.trim()) {
+      showToast("warn", "Digite um email para buscar.");
+      return;
     }
-  
-    const handleSearchClick = async () => {
-      try {
-        if (!email) {
-          showToast("warn", "Preencha todos os campos obrigatórios.");
-          return;
-        }
-    
-        const result = await searchUser(email);
-    
-        if (result === 404) {
-          // Usuário não encontrado, exibir opção para convidar
-          setSearch(null);
-          setUserGroups([]);
-          setNotFound(true); // Define notFound como true
-          showToast("warn", "Usuário não encontrado. Clique no botão para convidar.");
-        } else if (result) {
-          const { user, groups } = result;
-          console.log("Resultado da busca:", result);
-          setNotFound(false);
-          setEmail(user.emailAddress);
-          console.log("Email: ", user.emailAddress);
-          setSearch(user); // Atualiza o estado do usuário
-          if (user.accountType !== "atlassian") {
-            setOutOfDirectory(true);
-            showToast("warn", "Usuário não encontrado no diretório.");
-          } else {
-            setOutOfDirectory(false);
-            showToast("success", "Usuário localizado.");
-          }
-          setUserGroups(groups); // Atualiza o estado dos grupos
-        }
-    
-        console.log("outOfDirectory: ", outOfDirectory);
-      } catch (error) {
-        console.error("Error: ", error);
-        showToast("error", "Ocorreu um erro. Tente novamente.");
-      }
-    };
 
-  const handleInviteClick = async () => {
     try {
-      const result = await handleInvite(email);
-      if (result === 201) {
+      setIsSearching(true);
+      setSearchError(null);
+      setNotFound(false);
+      setOutOfDirectory(false);
+      setSearchedUser(null);
+      setUserGroups([]);
+
+      const result = await searchAtlassianUser(email.trim());
+
+      if (result.success && result.data && result.data.length > 0) {
+        const user = result.data[0]; // Pegar o primeiro usuário encontrado
+        setSearchedUser(user);
+        
+        if (user.accountType !== "atlassian") {
+          setOutOfDirectory(true);
+          showToast("warn", "Usuário encontrado, mas não está no diretório Atlassian.");
+        } else {
+          showToast("success", "Usuário encontrado com sucesso!");
+        }
+
+        // TODO: Implementar busca de grupos do usuário quando backend suportar
+        setUserGroups([]);
+        
+      } else {
+        setNotFound(true);
+        showToast("warn", "Usuário não encontrado. Você pode convidá-lo para o diretório.");
+      }
+    } catch (error: any) {
+      console.error("Erro ao buscar usuário:", error);
+      setSearchError(error.message || 'Erro desconhecido');
+      showToast("error", "Erro ao buscar usuário. Tente novamente.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // ✅ Convidar usuário
+  const handleInviteUser = async () => {
+    if (!user?.id) {
+      showToast("error", "Usuário não autenticado.");
+      return;
+    }
+
+    try {
+      setIsInviting(true);
+      const result = await inviteUserToAtlassian(email, user.id);
+
+      if (result.success) {
         showToast("success", "Convite enviado com sucesso!");
         showConfetti();
         setOpenInviteUserModal(false);
+        
+        // Buscar novamente para ver se o usuário foi adicionado
+        setTimeout(() => {
+          handleSearchUser(new Event('submit') as any);
+        }, 2000);
       } else {
-        showToast("error", "Erro ao enviar convite.");
+        showToast("error", result.message || "Erro ao enviar convite.");
       }
-    } catch (error) {
-      console.error("Error during invite:", error);
-      showToast("error", "Ocorreu um erro. Tente novamente.");
+    } catch (error: any) {
+      console.error("Erro ao convidar usuário:", error);
+      showToast("error", "Erro inesperado ao enviar convite.");
+    } finally {
+      setIsInviting(false);
     }
   };
 
-  const handleSuspendClick = async () => {
+  // ✅ Atribuir usuário a grupo (placeholder - será implementado quando backend suportar)
+  const handleAssignToGroup = async () => {
+    if (!selectedGroup || !searchedUser) {
+      showToast("warn", "Selecione um grupo.");
+      return;
+    }
+
     try {
-      const result = await handleSuspend(email);
-      if (result === 201) {
-        showToast("success", "Usuário suspendido com sucesso!");
-        showConfetti();
-        setOpenInviteUserModal(false);
-      } else {
-        showToast("error", "Erro ao suspender usuário.");
-      }
-    } catch (error) {
-      console.error("Error during suspend:", error);
-      showToast("error", "Ocorreu um erro. Tente novamente.");
+      setIsAssigning(true);
+      
+      // TODO: Implementar quando backend tiver endpoint para atribuir usuário a grupo
+      showToast("info", "Funcionalidade de atribuição será implementada em breve.");
+      setOpenAddToGroupModal(false);
+      
+    } catch (error: any) {
+      console.error("Erro ao atribuir usuário ao grupo:", error);
+      showToast("error", "Erro ao atribuir usuário ao grupo.");
+    } finally {
+      setIsAssigning(false);
     }
   };
- 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
+
+  // ✅ Suspender usuário (placeholder - será implementado quando backend suportar)
+  const handleSuspendUser = async () => {
+    if (!searchedUser) return;
+
+    try {
+      // TODO: Implementar quando backend tiver endpoint para suspender usuário
+      showToast("info", "Funcionalidade de suspensão será implementada em breve.");
+      setOpenDeactivateUserModal(false);
+      
+    } catch (error: any) {
+      console.error("Erro ao suspender usuário:", error);
+      showToast("error", "Erro ao suspender usuário.");
+    }
   };
-  
-  const handleAssignClick = async () => {
-    console.log ("Selected Group: ", selectedGroup)
-    console.log ("Email: ", email)
-    
-      try {
-        if (!selectedGroup || !email) {
-          showToast("warn", "Preencha todos os campos obrigatórios.");
-          return;
-        }
-  
-        let result;
-  
-        switch (selectedGroup) {
-          case "suspend":
-            result = await handleSuspend(email);
-            break;
-          case "remove":
-            result = await suspendAllUsers();
-            break;
-          default:
-            result = await handleAssign(selectedGroup, email);
-        }
-  
-        if (result === 201) {
-          setAddToGroupModal(false);
-          showToast("success", "Operação realizada com sucesso!");
-          showConfetti();
-          handleSearchClick();
-        } else if (result === 400) {
-          showToast("warn", "Operação não concluída. Verifique os dados.");
-        } else {
-          showToast("error", "Erro inesperado ao realizar a operação.");
-        }
-      } catch (error) {
-        console.error("Error during operation:", error);
-        showToast("error", "Ocorreu um erro. Tente novamente.");
-      }
-    };
-  
-  function showConfetti() {
-    confetti({
-      particleCount: 250,
-      spread: 120,
-      origin: { x: 1, y: 1 },
-      decay: 0.9,
-      gravity: 0.7
-    });
-  }
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    loadAvailableGroups();
+    loadLicenseData();
+  }, []);
 
   if (status === "loading") {
     return <Loading />;
   }
-  
+
   if (!session) {
     router.push("/");
     return null;
-  } else {
-    return (
-      <>
+  }
+
+  return (
+    <>
       <div className="flex flex-col items-center py-8 mx-auto gap-4 md:h-screen lg:py-0">
-      <nav className="block w-full px-4 py-2 mx-auto bg-white dark:bg-gray-700 shadow-md rounded-md lg:px-8 lg:py-3">
-        <div className="flex flex-row items-center justify-between w-full sm:w-auto sm:gap-4 mb-4 sm:mb-0">
-          <div className="flex w-96 min-w-52 items-center mx-auto p-4">
-            <form className="w-full min-w-40" onSubmit={handleSearch}>
-            <div className="flex w-full items-center relative bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">
-              <input
-                value={email}
-                onChange={handleEmailChange}
-                type="text"
-                id="default-search"
-                className="w-full p-4 pl-12 bg-transparent text-sm text-gray-900 border border-hidden border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"              placeholder="Informe o e-mail..."
-                required
-              />
-              <button
-                onClick={handleSearchClick}
-                type="submit"
-                className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-              >
-                <Icon icon="line-md:person-search" width="16" height="16" />
-              </button>
+        
+        {/* ✅ Barra de busca no local original */}
+        <nav className="block w-full px-4 py-2 mx-auto bg-white dark:bg-gray-700 shadow-md rounded-md lg:px-8 lg:py-3">
+          <div className="flex flex-row items-center justify-center w-full">
+            <div className="flex w-full max-w-lg items-center p-4">
+              <form className="w-full" onSubmit={handleSearchUser}>
+                <label htmlFor="email-search-input" className="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white">
+                  Buscar Usuário no Atlassian
+                </label>
+                <div className="flex w-full items-center relative bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">
+                  <input
+                    type="email"
+                    id="email-search-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full p-4 pl-4 pr-20 bg-transparent text-sm text-gray-900 border-hidden rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                    placeholder="Buscar por email do usuário..."
+                    disabled={isSearching}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSearching || !email.trim()}
+                    className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50"
+                  >
+                    {isSearching ? (
+                      <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Icon icon="mdi:magnify" className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
-            </form>
+          </div>
+        </nav>
+
+        {/* ✅ Cards de licenças movidos para baixo */}
+        <div className="w-full px-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Licenças Utilizadas</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {isLoadingLicenses ? '...' : licenseData.used}
+                  </p>
+                </div>
+                <Icon icon="mdi:account-multiple" className="w-8 h-8 text-blue-500" />
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Licenças Disponíveis</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {isLoadingLicenses ? '...' : licenseData.available}
+                  </p>
+                </div>
+                <Icon icon="mdi:check-circle" className="w-8 h-8 text-green-500" />
+              </div>
+            </div>
           </div>
         </div>
-      </nav>
-      {/* Search Section */}
-      {search && (
-        <div className="flex w-full min-w-96 bg-white rounded-lg shadow dark:border md:mt-0 xl:max-w-full dark:bg-gray-800 dark:border-gray-700">
-          <div className="w-full p-6 space-y-4 md:space-y-6 sm:p-8">
-            {/* Dados do Usuário Jira */}
-            <div className="flex flex-row items-center mb-6">
-              {/* Exibir Avatar do Usuário */}
-              <Image
-                src={search.avatarUrls["48x48"] || search.avatarUrls["24x24"] || search.avatarUrls["16x16"]}
-                width={64}
-                height={64}
-                alt="Avatar"
-              />
-              <div className="ml-4">
-                <h1 className="text-xl font-bold">{search.displayName}</h1>
-                <p className="text-gray-700 dark:text-gray-300">{search.emailAddress}</p>
-                <p className="text-gray-700 dark:text-gray-300">Status: {search.active ? "Ativo" : "Inativo"}</p>
-              </div>
-              <div className="ml-auto">
-                <button
-                  onClick={() => setDeactivateUserModal(true)}
-                  className="bg-red-600 text-white hover:bg-red-700 py-2 px-4 rounded"
-                  >
-                  Desativar Usuário
-                </button>
+
+        {/* ✅ Resultados da busca */}
+        <div className="w-full max-w-4xl px-4">
+          
+          {/* Loading da busca */}
+          {isSearching && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-center">
+                <Icon icon="mdi:loading" className="w-8 h-8 text-blue-500 animate-spin mr-3" />
+                <span className="text-gray-600 dark:text-gray-400">Buscando usuário...</span>
               </div>
             </div>
-            {outOfDirectory ? (
-              <button
-                onClick={() => setOpenInviteUserModal(true)}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              >
-                Adicionar ao Diretório
-              </button>
-            ) : (
-              search.active && (
-                <div className="flex flex-col justify-center mt-4">
-                
-                  <h3>Grupos do Usuário:</h3>
-                  <ul>
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {userGroups && (
-                      userGroups.map((group: any) => (
-                        <li key={group.groupId}>{group.name}</li>
-                      )))}
+          )}
+
+          {/* Erro na busca */}
+          {searchError && !isSearching && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-center">
+                <Icon icon="mdi:alert-circle" className="w-6 h-6 text-red-500 mr-3" />
+                <div>
+                  <h3 className="text-red-700 dark:text-red-400 font-medium">Erro na busca</h3>
+                  <p className="text-sm text-red-600 dark:text-red-500">{searchError}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Usuário encontrado */}
+          {searchedUser && !isSearching && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {/* Avatar e informações */}
+                  <div className="flex items-center space-x-4">
+                    <Image
+                      src={searchedUser.avatarUrls["48x48"] || "/default-avatar.png"}
+                      width={64}
+                      height={64}
+                      alt="Avatar do usuário"
+                      className="rounded-full"
+                    />
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {searchedUser.displayName}
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-400">{searchedUser.emailAddress}</p>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Badge color={searchedUser.active ? 'green' : 'red'} size="sm">
+                          {searchedUser.active ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                        <Badge color="blue" size="sm">
+                          {searchedUser.accountType}
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
-                  </ul>
-                  {/* Select e Botão para Adicionar Grupos */}
-                  <div className="flex m-8 w-80 mx-auto items-center relative bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">
-                    <select 
-                      id="sva"
-                      onChange={(e) => setSelectedGroup(e.target.value)}
-                      className="p-4 pr-12 bg-transparent border-hidden text-gray-900 text-sm block min-w-52 md:w-auto rounded-lg border dark:bg-gray-700 dark:placeholder-gray-400 dark:text-white">
-                      {groupList.map((group: any) => (
-                        <option key={group.groupId} value={group.groupId}>{group.groupName}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="submit"
-                      onClick={() => setAddToGroupModal(true)}
-                      className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                    >
-                      Adicionar
-                    </button>
+
+                  {/* Ações */}
+                  <div className="flex flex-wrap gap-2 ml-auto">
+                    {outOfDirectory ? (
+                      <Button
+                        color="blue"
+                        size="sm"
+                        onClick={() => setOpenInviteUserModal(true)}
+                      >
+                        <Icon icon="mdi:email-plus" className="w-4 h-4 mr-2" />
+                        Adicionar ao Diretório
+                      </Button>
+                    ) : (
+                      <>
+                        {searchedUser.active && (
+                          <>
+                            <Button
+                              color="green"
+                              size="sm"
+                              onClick={() => setOpenAddToGroupModal(true)}
+                              disabled={availableGroups.length === 0}
+                            >
+                              <Icon icon="mdi:account-plus" className="w-4 h-4 mr-2" />
+                              Adicionar a Grupo
+                            </Button>
+                            <Button
+                              color="red"
+                              size="sm"
+                              onClick={() => setOpenDeactivateUserModal(true)}
+                            >
+                              <Icon icon="mdi:account-off" className="w-4 h-4 mr-2" />
+                              Suspender
+                            </Button>
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
-              )
-            )}
-              {message && <div className="text-red-600">{message}</div>}
-          </div>
+
+                {/* Grupos do usuário */}
+                {userGroups.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
+                      Grupos do Usuário
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {userGroups.map((group: any, index: number) => (
+                        <Badge key={index} color="purple" size="sm">
+                          {group.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Usuário não encontrado */}
+          {notFound && !isSearching && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
+              <div className="text-center">
+                <Icon icon="mdi:account-search" className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-yellow-800 dark:text-yellow-400 mb-2">
+                  Usuário não encontrado
+                </h3>
+                <p className="text-yellow-700 dark:text-yellow-500 mb-4">
+                  Não foi possível encontrar um usuário com o email &quot;{email}&quot; no Atlassian.
+                </p>
+                <Button
+                  color="yellow"
+                  onClick={() => setOpenInviteUserModal(true)}
+                >
+                  <Icon icon="mdi:email-plus" className="w-4 h-4 mr-2" />
+                  Convidar Usuário
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-        )}
-        {notFound && (
-          <div>
-            <p>Usuário não encontrado.</p>
-            <button
-              onClick={() => setOpenInviteUserModal(true)}
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Convidar Usuário
-            </button>
-          </div>
-        )}
       </div>
-      <ConfirmModal
-        show={openAddToGroupModal}
-        title="Deseja adicionar o usuário ao grupo?"
-        description="O usuário será adicionado ao grupo selecionado."
-        confirmText="Sim, adicionar"
-        onConfirm={handleAssignClick}
-        onCancel={() => setAddToGroupModal(false)}
-      />
-      <ConfirmModal
-        show={openInviteUserModal}
-        title="Deseja convidar o usuário?"
-        description="O usuário será convidado para o diretório."
-        confirmText="Sim, convidar"
-        onConfirm={handleInviteClick}
-        onCancel={() => setOpenInviteUserModal(false)}
-      />
+
+      {/* ✅ Modal de convite */}
+      <Modal show={openInviteUserModal} onClose={() => setOpenInviteUserModal(false)} size="md">
+        <Modal.Header>Convidar Usuário</Modal.Header>
+        <Modal.Body>
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Deseja enviar um convite para <strong>{email}</strong> acessar o Atlassian?
+            </p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-sm text-blue-700 dark:text-blue-400">
+                O usuário receberá um email com instruções para acessar o sistema.
+              </p>
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={handleInviteUser} disabled={isInviting}>
+            {isInviting ? 'Enviando...' : 'Sim, Convidar'}
+          </Button>
+          <Button color="gray" onClick={() => setOpenInviteUserModal(false)}>
+            Cancelar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* ✅ Modal de adicionar a grupo */}
+      <Modal show={openAddToGroupModal} onClose={() => setOpenAddToGroupModal(false)} size="md">
+        <Modal.Header>Adicionar a Grupo</Modal.Header>
+        <Modal.Body>
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Selecione o grupo para adicionar <strong>{searchedUser?.displayName}</strong>:
+            </p>
+            <div>
+              <Label htmlFor="group-select" value="Grupo" />
+              <Select
+                id="group-select"
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                required
+              >
+                <option value="">Selecione um grupo...</option>
+                {availableGroups.map((group) => (
+                  <option key={group.id} value={group.group_id}>
+                    {group.group_name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            onClick={handleAssignToGroup} 
+            disabled={isAssigning || !selectedGroup}
+          >
+            {isAssigning ? 'Adicionando...' : 'Adicionar ao Grupo'}
+          </Button>
+          <Button color="gray" onClick={() => setOpenAddToGroupModal(false)}>
+            Cancelar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* ✅ Modal de suspensão */}
       <ConfirmModal
         show={openDeactivateUserModal}
-        title="Deseja desativar o usuário?"
-        description="O usuário será desativado."
-        confirmText="Sim, desativar"
-        onConfirm={() => handleSuspend}
-        onCancel={() => setDeactivateUserModal(false)}
+        title="Suspender Usuário"
+        description={`Tem certeza que deseja suspender o usuário "${searchedUser?.displayName}"? Esta ação impedirá o acesso ao sistema.`}
+        confirmText="Sim, Suspender"
+        cancelText="Cancelar"
+        onConfirm={handleSuspendUser}
+        onCancel={() => setOpenDeactivateUserModal(false)}
+        confirmButtonColor="red"
       />
-      <ToastContainer />
-      </>
-    )
-  }
+
+      <ToastContainer limit={4} />
+    </>
+  );
 }

@@ -1,5 +1,5 @@
 /**
- * 🎯 Utilitário: Formata tempo relativo (ex: "2 dias atrás")
+ * Formata tempo relativo (ex: "2 dias atrás")
  */
 export function formatRelativeTime(date: string | Date): string {
   const now = new Date();
@@ -23,7 +23,7 @@ export function formatRelativeTime(date: string | Date): string {
 }
 
 /**
- * 🎨 Utilitário: Determina cor do badge baseado no status
+ * Determina cor do badge baseado no status
  */
 export function getUserStatusColor(isActive: boolean): {
   color: 'green' | 'red';
