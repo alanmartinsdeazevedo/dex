@@ -1,7 +1,7 @@
 'use client'
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, FormEvent } from "react";
 import 'react-toastify/dist/ReactToastify.css';
 import Loading from "@/src/components/loading";
 import { Icon } from "@iconify/react/dist/iconify.js";
@@ -56,7 +56,7 @@ const showToast = (type: ToastType, message: string) => {
 
 // Componente da Página
 export default function SystemUsersPage() {
-  const { user } = useUser(); // Usar contexto em vez de useSession
+  const { user } = useUser();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -77,52 +77,59 @@ export default function SystemUsersPage() {
     roleId: undefined,
     orderBy: 'created_at',
     orderDirection: 'desc',
-    limit: 25, // Valor válido entre 1-100
+    limit: 25,
     offset: 0,
   });
 
   // Estados para modais e ações
   const [selectedUser, setSelectedUser] = useState<SystemUser | null>(null);
-  const [showUserModal, setShowUserModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showChangeRoleModal, setShowChangeRoleModal] = useState(false);
   const [showLogsModal, setShowLogsModal] = useState(false);
 
-  // Estados para edição
+  // Estados para formulários
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
-    role_id: '',
+    role_id: ''
   });
-
-  // Estados para troca de role
   const [newRoleId, setNewRoleId] = useState('');
 
-  // Estados para ações em progresso
-  const [isTogglingStatus, setIsTogglingStatus] = useState<string | null>(null);
+  // Estados para ações
+  const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingRole, setIsChangingRole] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-
-  // Estados para logs
-  const [userLogs, setUserLogs] = useState<any[]>([]);
+  const [isTogglingStatus, setIsTogglingStatus] = useState<string | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [userLogs, setUserLogs] = useState<any[]>([]);
 
-  // Roles disponíveis
+  // Dados auxiliares
   const availableRoles = getAvailableRoles();
 
-  // 🔍 Função para carregar usuários
-  const loadUsers = async (newFilters?: Partial<ComponentUsersFilters>) => {
+  // ✅ NOVO: Função para lidar com submissão do formulário de filtros
+  const handleFilterSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    handleApplyFilters();
+  };
+
+  // ✅ NOVO: Função para detectar Enter nos campos de filtro
+  const handleFilterKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleApplyFilters();
+    }
+  };
+
+  // 📄 Função para carregar usuários
+  const loadUsers = (newFilters?: Partial<ComponentUsersFilters>) => {
     setIsLoading(true);
     const currentFilters = newFilters ? { ...filters, ...newFilters } : filters;
 
-    // Debug dos filtros sendo enviados
     console.log('Filtros enviados para API:', currentFilters);
 
     startTransition(async () => {
       try {
-        // Converter para o tipo esperado pela API
         const apiFilters: UsersFilters = {
           search: currentFilters.search || undefined,
           isActive: currentFilters.isActive,
@@ -166,7 +173,6 @@ export default function SystemUsersPage() {
 
   // 🔍 Função para aplicar filtros
   const handleApplyFilters = () => {
-    // Validar e limpar filtros antes de enviar
     const cleanFilters: ComponentUsersFilters = {
       search: filters.search?.trim() || '',
       isActive: filters.isActive,
@@ -174,12 +180,10 @@ export default function SystemUsersPage() {
       orderBy: filters.orderBy,
       orderDirection: filters.orderDirection,
       limit: Math.max(1, Math.min(100, filters.limit)),
-      offset: 0, // Reset para primeira página
+      offset: 0,
     };
 
     console.log('Filtros validados:', cleanFilters);
-
-    // Atualizar estado local com filtros limpos
     setFilters(cleanFilters);
     loadUsers(cleanFilters);
   };
@@ -194,7 +198,7 @@ export default function SystemUsersPage() {
 
         if (result.success) {
           showToast("success", result.message || `Usuário ${result.data?.is_active ? 'ativado' : 'desativado'} com sucesso`);
-          await loadUsers(); // Recarregar lista
+          loadUsers();
         } else {
           showToast("error", result.message || "Erro ao alterar status do usuário");
         }
@@ -207,97 +211,97 @@ export default function SystemUsersPage() {
     });
   };
 
-  // ✏️ Função para abrir modal de edição
+  // ✏️ Função para editar usuário
   const handleEditUser = (user: SystemUser) => {
     setSelectedUser(user);
     setEditForm({
       name: user.name,
       email: user.email,
-      role_id: user.role_id,
+      role_id: user.role_id
     });
     setShowEditModal(true);
   };
 
-  // ✅ Função para salvar edição
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
 
     setIsUpdating(true);
-
-    startTransition(async () => {
-      try {
-        const result = await updateSystemUser(selectedUser.id, editForm, user?.id);
-
-        if (result.success) {
-          showToast("success", result.message || "Usuário atualizado com sucesso");
-          setShowEditModal(false);
-          await loadUsers(); // Recarregar lista
-        } else {
-          showToast("error", result.message || "Erro ao atualizar usuário");
-        }
-      } catch (error: any) {
-        console.error("Erro ao atualizar usuário:", error);
-        showToast("error", "Erro inesperado ao atualizar usuário");
-      } finally {
-        setIsUpdating(false);
+    try {
+      const result = await updateSystemUser(selectedUser.id, editForm);
+      
+      if (result.success) {
+        showToast("success", "Usuário atualizado com sucesso");
+        setShowEditModal(false);
+        loadUsers();
+      } else {
+        showToast("error", result.message || "Erro ao atualizar usuário");
       }
-    });
+    } catch (error: any) {
+      console.error("Erro ao atualizar usuário:", error);
+      showToast("error", "Erro inesperado ao atualizar usuário");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
-  // 🎭 Função para trocar role
+  // 🔄 Função para alterar role
+  const handleChangeRoleOpen = (user: SystemUser) => {
+    setSelectedUser(user);
+    setNewRoleId(user.role_id);
+    setShowChangeRoleModal(true);
+  };
+
   const handleChangeRole = async () => {
     if (!selectedUser || !newRoleId) return;
 
     setIsChangingRole(true);
-
-    startTransition(async () => {
-      try {
-        const result = await changeUserRole(selectedUser.id, newRoleId, user?.id);
-
-        if (result.success) {
-          showToast("success", result.message || "Role alterada com sucesso");
-          setShowChangeRoleModal(false);
-          await loadUsers(); // Recarregar lista
-        } else {
-          showToast("error", result.message || "Erro ao alterar role");
-        }
-      } catch (error: any) {
-        console.error("Erro ao alterar role:", error);
-        showToast("error", "Erro inesperado ao alterar role");
-      } finally {
-        setIsChangingRole(false);
-        setNewRoleId('');
+    try {
+      const result = await changeUserRole(selectedUser.id, newRoleId);
+      
+      if (result.success) {
+        showToast("success", "Perfil alterado com sucesso");
+        setShowChangeRoleModal(false);
+        loadUsers();
+      } else {
+        showToast("error", result.message || "Erro ao alterar perfil");
       }
-    });
+    } catch (error: any) {
+      console.error("Erro ao alterar perfil:", error);
+      showToast("error", "Erro inesperado ao alterar perfil");
+    } finally {
+      setIsChangingRole(false);
+    }
   };
 
   // 🗑️ Função para deletar usuário
-  const handleDeleteUser = async () => {
+  const handleDeleteUser = (user: SystemUser) => {
+    setSelectedUser(user);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
     if (!selectedUser) return;
 
     setIsDeleting(true);
-
-    startTransition(async () => {
-      try {
-        const result = await deleteSystemUser(selectedUser.id, user?.id);
-
-        if (result.success) {
-          showToast("success", result.message || "Usuário removido com sucesso");
-          setShowDeleteModal(false);
-          await loadUsers(); // Recarregar lista
-        } else {
-          showToast("error", result.message || "Erro ao remover usuário");
-        }
-      } catch (error: any) {
-        console.error("Erro ao remover usuário:", error);
-        showToast("error", "Erro inesperado ao remover usuário");
-      } finally {
-        setIsDeleting(false);
+    try {
+      const result = await deleteSystemUser(selectedUser.id);
+      
+      if (result.success) {
+        showToast("success", "Usuário removido com sucesso");
+        setShowDeleteModal(false);
+        loadUsers();
+      } else {
+        showToast("error", result.message || "Erro ao remover usuário");
       }
-    });
+    } catch (error: any) {
+      console.error("Erro ao remover usuário:", error);
+      showToast("error", "Erro inesperado ao remover usuário");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
-  // 📊 Função para carregar logs do usuário
+  // 📋 Função para visualizar logs
   const handleViewLogs = async (user: SystemUser) => {
     setSelectedUser(user);
     setShowLogsModal(true);
@@ -365,7 +369,7 @@ export default function SystemUsersPage() {
           
           {/* Estatísticas Rápidas */}
           <div className="flex gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border border-gray-200 dark:border-gray-700">
               <div className="text-2xl text-center font-bold text-green-600 dark:text-green-400">
                 {users.filter(u => u.is_active).length}
               </div>
@@ -373,7 +377,7 @@ export default function SystemUsersPage() {
                 Mostrando
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border border-gray-200 dark:border-gray-700">
               <div className="text-2xl text-center font-bold text-blue-600 dark:text-blue-400">
                 {pagination.total}
               </div>
@@ -384,245 +388,233 @@ export default function SystemUsersPage() {
           </div>
         </div>
 
-        {/* Filtros */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mx-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Busca */}
-            <div>
-              <Label htmlFor="search" value="Buscar" />
-              <TextInput
-                id="search"
-                type="text"
-                placeholder="Nome, email..."
-                value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              />
+        {/* ✅ FILTROS CORRIGIDOS */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4 mx-4">
+          <form onSubmit={handleFilterSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Busca */}
+              <div>
+                <Label htmlFor="search" value="Buscar" className="text-gray-700 dark:text-gray-300" />
+                <TextInput
+                  id="search"
+                  type="text"
+                  placeholder="Nome, email..."
+                  value={filters.search}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  onKeyDown={handleFilterKeyDown}
+                  className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <Label htmlFor="status" value="Status" className="text-gray-700 dark:text-gray-300" />
+                <Select
+                  id="status"
+                  value={filters.isActive === undefined ? 'all' : filters.isActive.toString()}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFilters({
+                      ...filters,
+                      isActive: value === 'all' ? undefined : value === 'true'
+                    });
+                  }}
+                  onKeyDown={handleFilterKeyDown}
+                  className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                >
+                  <option value="all">Todos</option>
+                  <option value="true">Ativos</option>
+                  <option value="false">Inativos</option>
+                </Select>
+              </div>
+
+              {/* Role */}
+              <div>
+                <Label htmlFor="role" value="Perfil" className="text-gray-700 dark:text-gray-300" />
+                <Select
+                  id="role"
+                  value={filters.roleId || ''}
+                  onChange={(e) => setFilters({ 
+                    ...filters, 
+                    roleId: e.target.value || undefined 
+                  })}
+                  onKeyDown={handleFilterKeyDown}
+                  className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                >
+                  <option value="">Todos os perfis</option>
+                  {availableRoles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.role}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {/* Ordenação */}
+              <div>
+                <Label htmlFor="orderBy" value="Ordenar por" className="text-gray-700 dark:text-gray-300" />
+                <Select
+                  id="orderBy"
+                  value={`${filters.orderBy}-${filters.orderDirection}`}
+                  onChange={(e) => {
+                    const [orderBy, orderDirection] = e.target.value.split('-');
+                    setFilters({
+                      ...filters,
+                      orderBy: orderBy as any,
+                      orderDirection: orderDirection as any
+                    });
+                  }}
+                  onKeyDown={handleFilterKeyDown}
+                  className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                >
+                  <option value="created_at-desc">Mais recentes</option>
+                  <option value="created_at-asc">Mais antigos</option>
+                  <option value="name-asc">Nome A-Z</option>
+                  <option value="name-desc">Nome Z-A</option>
+                  <option value="last_login-desc">Último login</option>
+                </Select>
+              </div>
             </div>
 
-            {/* Status */}
-            <div>
-              <Label htmlFor="status" value="Status" />
-              <Select
-                id="status"
-                value={filters.isActive === undefined ? 'all' : filters.isActive.toString()}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFilters({
-                    ...filters,
-                    isActive: value === 'all' ? undefined : value === 'true'
-                  });
-                }}
+            {/* ✅ BOTÃO CORRIGIDO COM MELHOR VISIBILIDADE */}
+            <div className="flex justify-end mt-4">
+              <Button 
+                type="submit"
+                disabled={isLoading}
+                color="blue"
+                className="bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
               >
-                <option value="all">Todos</option>
-                <option value="true">Ativos</option>
-                <option value="false">Inativos</option>
-              </Select>
+                <Icon icon="line-md:search" className="mr-2 h-4 w-4"/>
+                Aplicar Filtros
+              </Button>
             </div>
-
-            {/* Role */}
-            <div>
-              <Label htmlFor="role" value="Perfil" />
-              <Select
-                id="role"
-                value={filters.roleId || ''}
-                onChange={(e) => setFilters({ 
-                  ...filters, 
-                  roleId: e.target.value || undefined 
-                })}
-              >
-                <option value="">Todos os perfis</option>
-                {availableRoles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.role}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {/* Ordenação */}
-            <div>
-              <Label htmlFor="orderBy" value="Ordenar por" />
-              <Select
-                id="orderBy"
-                value={`${filters.orderBy}-${filters.orderDirection}`}
-                onChange={(e) => {
-                  const [orderBy, orderDirection] = e.target.value.split('-');
-                  setFilters({
-                    ...filters,
-                    orderBy: orderBy as any,
-                    orderDirection: orderDirection as any
-                  });
-                }}
-              >
-                <option value="created_at-desc">Mais recentes</option>
-                <option value="created_at-asc">Mais antigos</option>
-                <option value="name-asc">Nome A-Z</option>
-                <option value="name-desc">Nome Z-A</option>
-                <option value="last_login-desc">Último login</option>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex justify-end mt-4">
-            <Button onClick={handleApplyFilters} disabled={isLoading}>
-              <Icon icon="line-md:search" className="mr-2 h-4 w-4"/>
-              Aplicar Filtros
-            </Button>
-          </div>
+          </form>
         </div>
 
         {/* Tabela de Usuários */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mx-4 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 mx-4 overflow-hidden">
           {isLoading ? (
-            <Loading />
+            <div className="p-8">
+              <Loading />
+            </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <Table hoverable>
-                  <Table.Head>
-                    <Table.HeadCell>Usuário</Table.HeadCell>
-                    <Table.HeadCell>E-mail</Table.HeadCell>
-                    <Table.HeadCell>Perfil</Table.HeadCell>
-                    <Table.HeadCell>Status</Table.HeadCell>
-                    <Table.HeadCell>Último Login</Table.HeadCell>
-                    <Table.HeadCell>Logs</Table.HeadCell>
-                    <Table.HeadCell>Ações</Table.HeadCell>
+                  <Table.Head className="bg-gray-50 dark:bg-gray-700">
+                    <Table.HeadCell className="text-gray-700 dark:text-gray-300">Nome</Table.HeadCell>
+                    <Table.HeadCell className="text-gray-700 dark:text-gray-300">E-mail</Table.HeadCell>
+                    <Table.HeadCell className="text-gray-700 dark:text-gray-300">Perfil</Table.HeadCell>
+                    <Table.HeadCell className="text-gray-700 dark:text-gray-300">Status</Table.HeadCell>
+                    <Table.HeadCell className="text-gray-700 dark:text-gray-300">Último Login</Table.HeadCell>
+                    <Table.HeadCell className="text-gray-700 dark:text-gray-300">Logs</Table.HeadCell>
+                    <Table.HeadCell className="text-gray-700 dark:text-gray-300">Ações</Table.HeadCell>
                   </Table.Head>
-                  <Table.Body className="divide-y">
-                    {users.length > 0 ? (
-                      users.map((user) => {
-                        const statusInfo = getUserStatusColor(user.is_active);
-                        return (
-                          <Table.Row key={user.id} className="bg-white dark:border-gray-700 dark:bg-gray-800">
-                            {/* Usuário */}
-                            <Table.Cell className="whitespace-nowrap font-medium text-gray-900 dark:text-white">
-                              <div className="flex items-center gap-3">
-                                {user.profile_image ? (
-                                  <img
-                                    src={user.profile_image}
-                                    alt={user.name}
-                                    className="w-8 h-8 rounded-full"
-                                  />
-                                ) : (
-                                  <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                                    <Icon icon="mdi:account" className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                                  </div>
-                                )}
-                                <div>
-                                  <div className="font-medium">{user.name}</div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    ID: {user.ms_id}
-                                  </div>
-                                </div>
-                              </div>
-                            </Table.Cell>
+                  <Table.Body className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {users.length > 0 ? users.map((user) => (
+                      <Table.Row key={user.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        {/* Nome */}
+                        <Table.Cell className="font-medium text-gray-900 dark:text-white">
+                          {user.name}
+                        </Table.Cell>
 
-                            {/* E-mail */}
-                            <Table.Cell>{user.email}</Table.Cell>
+                        {/* E-mail */}
+                        <Table.Cell className="text-gray-500 dark:text-gray-400">
+                          {user.email}
+                        </Table.Cell>
 
-                            {/* Perfil */}
-                            <Table.Cell>
-                              <Badge color="info" size="sm">
-                                {user.role.role}
-                              </Badge>
-                            </Table.Cell>
+                        {/* Perfil */}
+                        <Table.Cell>
+                          <Badge color="purple" size="sm">
+                            {user.role?.role || 'N/A'}
+                          </Badge>
+                        </Table.Cell>
 
-                            {/* Status */}
-                            <Table.Cell>
-                              <Badge color={statusInfo.color} size="sm">
-                                {statusInfo.text}
-                              </Badge>
-                            </Table.Cell>
+                        {/* Status */}
+                        <Table.Cell>
+                          <Badge 
+                            color={getUserStatusColor(user.is_active).color} 
+                            size="sm"
+                          >
+                            {user.is_active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </Table.Cell>
 
-                            {/* Último Login */}
-                            <Table.Cell>
-                              <div className="text-sm">
-                                {user.last_login 
-                                  ? formatRelativeTime(user.last_login)
-                                  : 'Nunca'
-                                }
-                              </div>
-                            </Table.Cell>
+                        {/* Último Login */}
+                        <Table.Cell className="text-gray-500 dark:text-gray-400">
+                          <div className="text-sm">
+                            {user.last_login 
+                              ? formatRelativeTime(user.last_login)
+                              : 'Nunca'
+                            }
+                          </div>
+                        </Table.Cell>
 
-                            {/* Logs */}
-                            <Table.Cell>
-                              <div className="flex gap-2">
-                                <Badge color="gray" size="sm">
-                                  {(user._count?.Log || 0) + (user._count?.AtlassianLog || 0)}
-                                </Badge>
-                                <Button
-                                  size="xs"
-                                  color="gray"
-                                  onClick={() => handleViewLogs(user)}
-                                >
-                                  <Icon icon="mdi:eye" className="w-3 h-3" />
+                        {/* Logs */}
+                        <Table.Cell>
+                          <div className="flex gap-2">
+                            <Badge color="gray" size="sm">
+                              {(user._count?.Log || 0) + (user._count?.AtlassianLog || 0)}
+                            </Badge>
+                            <Button
+                              size="xs"
+                              color="gray"
+                              onClick={() => handleViewLogs(user)}
+                            >
+                              <Icon icon="mdi:eye" className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </Table.Cell>
+
+                        {/* Ações */}
+                        <Table.Cell>
+                          <div className="flex gap-2">
+                            <Dropdown
+                              label=""
+                              dismissOnClick={false}
+                              renderTrigger={() => (
+                                <Button size="xs" color="gray">
+                                  <Icon icon="mdi:dots-vertical" className="w-4 h-4" />
                                 </Button>
-                              </div>
-                            </Table.Cell>
+                              )}
+                            >
+                              {/* Editar */}
+                              <Dropdown.Item onClick={() => handleEditUser(user)}>
+                                <Icon icon="mdi:pencil" className="mr-2 w-4 h-4" />
+                                Editar
+                              </Dropdown.Item>
 
-                            {/* Ações */}
-                            <Table.Cell>
-                              <div className="flex gap-2">
-                                <Dropdown
-                                  label=""
-                                  dismissOnClick={false}
-                                  renderTrigger={() => (
-                                    <Button size="xs" color="gray">
-                                      <Icon icon="mdi:dots-vertical" className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                >
-                                  {/* Editar */}
-                                  <Dropdown.Item onClick={() => handleEditUser(user)}>
-                                    <Icon icon="mdi:pencil" className="mr-2 w-4 h-4" />
-                                    Editar
-                                  </Dropdown.Item>
+                              {/* Alterar Status */}
+                              <Dropdown.Item 
+                                onClick={() => handleToggleStatus(user)}
+                                disabled={isTogglingStatus === user.id}
+                              >
+                                <Icon 
+                                  icon={user.is_active ? "mdi:account-off" : "mdi:account-check"} 
+                                  className="mr-2 w-4 h-4" 
+                                />
+                                {isTogglingStatus === user.id 
+                                  ? 'Processando...'
+                                  : user.is_active ? 'Desativar' : 'Ativar'
+                                }
+                              </Dropdown.Item>
 
-                                  {/* Alterar Status */}
-                                  <Dropdown.Item 
-                                    onClick={() => handleToggleStatus(user)}
-                                    disabled={isTogglingStatus === user.id}
-                                  >
-                                    <Icon 
-                                      icon={user.is_active ? "mdi:account-off" : "mdi:account-check"} 
-                                      className="mr-2 w-4 h-4" 
-                                    />
-                                    {isTogglingStatus === user.id 
-                                      ? 'Processando...'
-                                      : user.is_active ? 'Desativar' : 'Ativar'
-                                    }
-                                  </Dropdown.Item>
+                              {/* Alterar Perfil */}
+                              <Dropdown.Item onClick={() => handleChangeRoleOpen(user)}>
+                                <Icon icon="mdi:account-cog" className="mr-2 w-4 h-4" />
+                                Alterar Perfil
+                              </Dropdown.Item>
 
-                                  {/* Alterar Role */}
-                                  <Dropdown.Item onClick={() => {
-                                    setSelectedUser(user);
-                                    setNewRoleId(user.role_id);
-                                    setShowChangeRoleModal(true);
-                                  }}>
-                                    <Icon icon="mdi:account-cog" className="mr-2 w-4 h-4" />
-                                    Alterar Perfil
-                                  </Dropdown.Item>
-
-                                  <Dropdown.Divider />
-
-                                  {/* Deletar */}
-                                  <Dropdown.Item 
-                                    onClick={() => {
-                                      setSelectedUser(user);
-                                      setShowDeleteModal(true);
-                                    }}
-                                    className="text-red-600 dark:text-red-400"
-                                  >
-                                    <Icon icon="mdi:delete" className="mr-2 w-4 h-4" />
-                                    Remover
-                                  </Dropdown.Item>
-                                </Dropdown>
-                              </div>
-                            </Table.Cell>
-                          </Table.Row>
-                        );
-                      })
-                    ) : (
+                              {/* Deletar */}
+                              <Dropdown.Item onClick={() => handleDeleteUser(user)}>
+                                <Icon icon="mdi:delete" className="mr-2 w-4 h-4" />
+                                Remover
+                              </Dropdown.Item>
+                            </Dropdown>
+                          </div>
+                        </Table.Cell>
+                      </Table.Row>
+                    )) : (
                       <Table.Row>
                         <Table.Cell colSpan={7} className="text-center py-8">
                           <div className="flex flex-col items-center gap-2">
@@ -815,13 +807,13 @@ export default function SystemUsersPage() {
         description={`Tem certeza que deseja remover o usuário "${selectedUser?.name}"? Esta ação não pode ser desfeita.`}
         confirmText="Sim, Remover"
         cancelText="Cancelar"
-        onConfirm={handleDeleteUser}
+        onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteModal(false)}
         isProcessing={isDeleting}
         confirmButtonColor="red"
       />
 
-      <ToastContainer />
+      <ToastContainer limit={4} />
     </>
   );
 }
