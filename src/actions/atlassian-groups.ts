@@ -6,7 +6,6 @@ import {
   buildApiUrl,
 } from '@/src/utils/atlassian';
 
-// ==================== CONFIGURAÇÕES ====================
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3002';
 
@@ -356,6 +355,229 @@ export async function validateAtlassianId(
     return {
       success: false,
       message: 'Erro ao validar ID do Atlassian',
+      error: error.message,
+    };
+  }
+}
+
+// ==================== INTERFACES ====================
+
+export interface AtlassianGroupFromApi {
+  name: string;
+  groupId?: string;
+  self?: string;
+  html?: string;
+  labels?: any[];
+  users?: {
+    size: number;
+    items: any[];
+    'max-results': number;
+    'start-index': number;
+    'end-index': number;
+  };
+  expand?: string;
+  inDatabase?: boolean;
+}
+
+export interface AtlassianGroupsResponse {
+  groups: AtlassianGroupFromApi[];
+  total: number;
+  maxResults: number;
+  startAt: number;
+  isLast: boolean;
+}
+
+// ==================== FUNÇÕES DE GRUPOS DA ATLASSIAN ====================
+
+/**
+ * ✅ Busca grupos diretamente da Atlassian
+ */
+export async function fetchAtlassianGroupsFromApi(
+  maxResults: number = 50,
+  startAt: number = 0,
+  search?: string
+): Promise<ApiResponse<AtlassianGroupsResponse>> {
+  try {
+    const params = new URLSearchParams({
+      maxResults: maxResults.toString(),
+      startAt: startAt.toString(),
+    });
+
+    if (search?.trim()) {
+      params.append('search', search.trim());
+    }
+
+    const response = await fetch(
+      `${BACKEND_URL}/atlassian/atlassian-groups?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Erro ao buscar grupos da Atlassian:', error);
+    return {
+      success: false,
+      message: 'Erro ao buscar grupos da Atlassian',
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * ✅ Cria um novo grupo diretamente na Atlassian
+ */
+export async function createGroupInAtlassian(
+  groupName: string,
+  userId: string
+): Promise<ApiResponse<any>> {
+  try {
+    if (!groupName.trim()) {
+      return {
+        success: false,
+        message: 'Nome do grupo é obrigatório',
+      };
+    }
+
+    if (!userId.trim()) {
+      return {
+        success: false,
+        message: 'ID do usuário é obrigatório',
+      };
+    }
+
+    const response = await fetch(`${BACKEND_URL}/atlassian/atlassian-groups`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': userId,
+      },
+      body: JSON.stringify({ groupName }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Erro ao criar grupo na Atlassian:', error);
+    return {
+      success: false,
+      message: 'Erro ao criar grupo na Atlassian',
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * ✅ Adiciona um grupo da Atlassian à base de dados local
+ */
+export async function addAtlassianGroupToDatabase(
+  groupName: string,
+  groupData: {
+    groupId?: string;
+    description?: string;
+    order?: number;
+  },
+  userId: string
+): Promise<ApiResponse<any>> {
+  try {
+    if (!groupName.trim()) {
+      return {
+        success: false,
+        message: 'Nome do grupo é obrigatório',
+      };
+    }
+
+    if (!userId.trim()) {
+      return {
+        success: false,
+        message: 'ID do usuário é obrigatório',
+      };
+    }
+
+    const response = await fetch(
+      `${BACKEND_URL}/atlassian/atlassian-groups/${encodeURIComponent(groupName)}/add-to-database`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'user-id': userId,
+        },
+        body: JSON.stringify(groupData),
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Erro ao adicionar grupo à base de dados:', error);
+    return {
+      success: false,
+      message: 'Erro ao adicionar grupo à base de dados',
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * ✅ Verifica se um grupo da Atlassian já está na base de dados
+ */
+export async function checkGroupInDatabase(
+  groupName: string
+): Promise<ApiResponse<{ groupName: string; inDatabase: boolean }>> {
+  try {
+    if (!groupName.trim()) {
+      return {
+        success: false,
+        message: 'Nome do grupo é obrigatório',
+      };
+    }
+
+    const response = await fetch(
+      `${BACKEND_URL}/atlassian/atlassian-groups/${encodeURIComponent(groupName)}/check-database`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Erro ao verificar grupo na base de dados:', error);
+    return {
+      success: false,
+      message: 'Erro ao verificar grupo na base de dados',
       error: error.message,
     };
   }
