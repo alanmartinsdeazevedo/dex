@@ -3,6 +3,8 @@ export interface LicenseUsageData {
   currentUsage: number;
   approximateCount: number;
   timestamp: string;
+  available?: number;
+  used?: number;
 }
 
 export interface LicenseStats {
@@ -23,6 +25,40 @@ export interface AtlassianUser {
     "48x48": string;
     "24x24": string;
     "16x16": string;
+    "32x32"?: string;
+  };
+  groups?: AtlassianUserGroup[];
+  suspended?: boolean;
+  timeZone?: string;
+  locale?: string;
+}
+
+export interface AtlassianUserGroup {
+  name: string;
+  groupId: string;
+  self: string;
+}
+
+export interface AtlassianGroup {
+  id: string;
+  group_id: string;
+  group_name: string;
+  description?: string;
+  order?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  updated_by?: string;
+  creator?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  updater?: {
+    id: string;
+    name: string;
+    email: string;
   };
 }
 

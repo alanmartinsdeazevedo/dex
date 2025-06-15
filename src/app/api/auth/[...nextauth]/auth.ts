@@ -60,7 +60,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             profile_image: user?.image as string,
           };
 
-          console.log('User Data:', userData);
           const response = await fetch(`${process.env.BACKEND_URL}/users/auth`, {
             method: 'POST',
             headers: {
@@ -68,7 +67,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
             body: JSON.stringify(userData),
           });
-          console.log('Response:', response);
 
           if (!response.ok) {
             throw new Error('Erro ao logar usuário');

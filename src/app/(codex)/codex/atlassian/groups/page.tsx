@@ -483,7 +483,7 @@ export default function AtlassianGroupsPage() {
                 groups.map((group) => (
                   <div
                     key={group.id}
-                    className="flex items-center justify-between p-4 border rounded hover:bg-gray-50"
+                    className="flex items-center justify-between p-4 border rounded hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     {editingGroupId === group.id ? (
                       // Modo de edição
@@ -549,9 +549,9 @@ export default function AtlassianGroupsPage() {
                               </span>
                             </div>
                             {group.description && (
-                              <p className="text-gray-600 text-sm mt-1">{group.description}</p>
+                              <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">{group.description}</p>
                             )}
-                            <p className="text-gray-500 text-xs mt-1">
+                            <p className="text-gray-500 dark:text-gray-300 text-xs mt-1">
                               ID: {group.group_id}
                             </p>
                           </div>

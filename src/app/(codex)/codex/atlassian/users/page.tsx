@@ -1,3 +1,4 @@
+// src/app/(codex)/codex/atlassian/users/page.tsx
 'use client'
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -24,10 +25,9 @@ import {
 import {
   AtlassianUser,
   AtlassianGroup,
-  calculateLicenseStats,
-  formatLicenseDisplay,
-  getStatusColor,
-  DEFAULT_TOTAL_LICENSES
+  AtlassianUserGroup,
+  LicenseUsageData,
+  ApiResponse
 } from '@/src/utils/atlassian';
 
 // ✅ Importar contexto do usuário
@@ -56,6 +56,109 @@ const showConfetti = () => {
     decay: 0.9,
     gravity: 0.7,
   });
+};
+
+// ==================== COMPONENTE PARA EXIBIR GRUPOS ====================
+
+interface UserGroupProps {
+  group: {
+    name: string;
+    groupId: string;
+    self: string;
+  };
+}
+
+const UserGroupCard = ({ group }: UserGroupProps) => {
+  const getGroupIcon = (groupName: string) => {
+    const name = groupName.toLowerCase();
+    if (name.includes('admin')) return 'material-symbols:admin-panel-settings';
+    if (name.includes('jira')) return 'devicon:jira';
+    if (name.includes('noc')) return 'material-symbols:network-intelligence';
+    if (name.includes('rh') || name.includes('hr')) return 'material-symbols:group';
+    if (name.includes('suporte') || name.includes('support')) return 'material-symbols:support-agent';
+    if (name.includes('cliente')) return 'material-symbols:person';
+    if (name.includes('facilities')) return 'material-symbols:business';
+    if (name.includes('aprovador')) return 'material-symbols:approval';
+    if (name.includes('comite')) return 'material-symbols:groups';
+    if (name.includes('governança')) return 'material-symbols:gavel';
+    if (name.includes('prospect')) return 'material-symbols:trending-up';
+    return 'material-symbols:group';
+  };
+
+  const getGroupColor = (groupName: string) => {
+    const name = groupName.toLowerCase();
+    if (name.includes('admin')) return 'bg-red-100 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300';
+    if (name.includes('jira')) return 'bg-blue-100 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300';
+    if (name.includes('noc')) return 'bg-purple-100 border-purple-200 text-purple-800 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-300';
+    if (name.includes('rh') || name.includes('hr')) return 'bg-green-100 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300';
+    if (name.includes('suporte') || name.includes('support')) return 'bg-orange-100 border-orange-200 text-orange-800 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300';
+    if (name.includes('cliente')) return 'bg-cyan-100 border-cyan-200 text-cyan-800 dark:bg-cyan-900/20 dark:border-cyan-800 dark:text-cyan-300';
+    return 'bg-gray-100 border-gray-200 text-gray-800 dark:bg-gray-900/20 dark:border-gray-800 dark:text-gray-300';
+  };
+
+  return (
+    <div className={`rounded-lg border p-3 transition-all hover:shadow-md ${getGroupColor(group.name)}`}>
+      <div className="flex items-start gap-3">
+        <Icon 
+          icon={getGroupIcon(group.name)} 
+          className="text-xl flex-shrink-0 mt-0.5" 
+        />
+        <div className="flex-1 min-w-0">
+          <h4 className="font-medium text-sm leading-tight mb-1 break-words">
+            {group.name}
+          </h4>
+          <p className="text-xs opacity-75 font-mono break-all">
+            {group.groupId}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const UserGroupsDisplay = ({ groups }: { groups: any[] }) => {
+  if (!groups || groups.length === 0) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 text-center">
+        <Icon icon="material-symbols:group-off" className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          Nenhum grupo encontrado
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Este usuário não está atribuído a nenhum grupo no Atlassian
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Icon icon="material-symbols:groups" className="w-6 h-6 text-blue-500" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Grupos do Atlassian
+          </h3>
+        </div>
+        <Badge color="blue" size="sm">
+          {groups.length} grupo{groups.length !== 1 ? 's' : ''}
+        </Badge>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {groups.map((group, index) => (
+          <UserGroupCard key={group.groupId || index} group={group} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ==================== FUNÇÃO PARA VALIDAR EMAIL ====================
+
+const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 };
 
 interface LicenseData {
@@ -91,30 +194,8 @@ export default function AtlassianUsersPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   
   // Estados de licenças
-  const [licenseData, setLicenseData] = useState<LicenseData>({ used: 0, available: 0 });
+  const [licenseData, setLicenseData] = useState<LicenseData>({ available: 0, used: 0 });
   const [isLoadingLicenses, setIsLoadingLicenses] = useState(true);
-
-  // ✅ Carregar grupos disponíveis
-  const loadAvailableGroups = async () => {
-    try {
-      const result = await fetchAtlassianGroups({
-        isActive: true,
-        orderBy: 'order',
-        orderDirection: 'asc',
-        limit: 100
-      });
-
-      if (result.success && result.data) {
-        setAvailableGroups(result.data);
-      } else {
-        console.error('Erro ao carregar grupos:', result.message);
-        setAvailableGroups([]);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar grupos:', error);
-      setAvailableGroups([]);
-    }
-  };
 
   // ✅ Carregar dados de licenças
   const loadLicenseData = async () => {
@@ -123,26 +204,58 @@ export default function AtlassianUsersPage() {
       const result = await fetchLicenseUsage();
       
       if (result.success && result.data) {
-        const stats = calculateLicenseStats(result.data, DEFAULT_TOTAL_LICENSES);
-        setLicenseData({ 
-          used: stats.used, 
-          available: stats.available 
+        setLicenseData({
+          available: result.data.available || 0,
+          used: result.data.used || 0
         });
       }
     } catch (error) {
-      console.error("Erro ao buscar dados de licença:", error);
-      showToast("error", "Erro ao carregar dados de licença.");
+      console.error("Erro ao carregar dados de licenças:", error);
     } finally {
       setIsLoadingLicenses(false);
     }
   };
 
-  // ✅ Buscar usuário no Atlassian
+  // ✅ Carregar grupos disponíveis
+  const loadAvailableGroups = async () => {
+    try {
+      const result = await fetchAtlassianGroups({
+        isActive: true,
+        limit: 100
+      });
+
+      if (result.success && result.data) {
+        // ✅ Verificação robusta que funciona para ambas as estruturas
+        let groupsArray: AtlassianGroup[] = [];
+        
+        if (Array.isArray(result.data)) {
+          groupsArray = result.data;
+        } else if (result.data && typeof result.data === 'object' && 'data' in result.data) {
+          groupsArray = (result.data as any).data || [];
+        }
+        
+        setAvailableGroups(groupsArray);
+        console.log('Grupos carregados:', groupsArray.length);
+      } else {
+        setAvailableGroups([]);
+        console.warn('Nenhum grupo encontrado');
+      }
+    } catch (error) {
+      console.error("Erro ao carregar grupos:", error);
+      setAvailableGroups([]);
+    }
+  };
+
+  // ✅ Buscar usuário no Atlassian com grupos
   const handleSearchUser = async (e: FormEvent) => {
     e.preventDefault();
-    
     if (!email.trim()) {
       showToast("warn", "Digite um email para buscar.");
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      showToast("error", "Digite um email válido.");
       return;
     }
 
@@ -150,26 +263,25 @@ export default function AtlassianUsersPage() {
       setIsSearching(true);
       setSearchError(null);
       setNotFound(false);
-      setOutOfDirectory(false);
       setSearchedUser(null);
       setUserGroups([]);
 
-      const result = await searchAtlassianUser(email.trim());
+      // ✅ Usar a nova rota que retorna usuário com grupos
+      const result = await searchAtlassianUser(email);
 
       if (result.success && result.data && result.data.length > 0) {
-        const user = result.data[0]; // Pegar o primeiro usuário encontrado
-        setSearchedUser(user);
+        const userData = result.data[0];
+        setSearchedUser(userData);
         
-        if (user.accountType !== "atlassian") {
-          setOutOfDirectory(true);
-          showToast("warn", "Usuário encontrado, mas não está no diretório Atlassian.");
-        } else {
-          showToast("success", "Usuário encontrado com sucesso!");
-        }
+        // ✅ Definir grupos do usuário (agora vem do backend)
+        const groups = userData.groups || [];
+        setUserGroups(groups);
 
-        // TODO: Implementar busca de grupos do usuário quando backend suportar
-        setUserGroups([]);
-        
+        if (userData.suspended) {
+          showToast("warn", "Usuário encontrado, mas está suspenso no Atlassian.");
+        } else {
+          showToast("success", `Usuário encontrado com sucesso! ${groups.length} grupos atribuídos.`);
+        }
       } else {
         setNotFound(true);
         showToast("warn", "Usuário não encontrado. Você pode convidá-lo para o diretório.");
@@ -306,81 +418,52 @@ export default function AtlassianUsersPage() {
           </div>
         </nav>
 
-        {/* ✅ Cards de licenças movidos para baixo */}
-        <div className="w-full px-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Licenças Utilizadas</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {isLoadingLicenses ? '...' : licenseData.used}
-                  </p>
-                </div>
-                <Icon icon="mdi:account-multiple" className="w-8 h-8 text-blue-500" />
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Licenças Disponíveis</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {isLoadingLicenses ? '...' : licenseData.available}
-                  </p>
-                </div>
-                <Icon icon="mdi:check-circle" className="w-8 h-8 text-green-500" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ✅ Resultados da busca */}
-        <div className="w-full px-4">
-          
-          {/* Loading da busca */}
+        {/* ✅ Área de resultados */}
+        <div className="w-full">
+          {/* Estado de carregamento */}
           {isSearching && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-center">
-                <Icon icon="mdi:loading" className="w-8 h-8 text-blue-500 animate-spin mr-3" />
-                <span className="text-gray-600 dark:text-gray-400">Buscando usuário...</span>
-              </div>
+            <div className="text-center py-8">
+              <Loading />
+              <p className="mt-4 text-gray-600 dark:text-gray-300">Buscando usuário...</p>
             </div>
           )}
 
           {/* Erro na busca */}
-          {searchError && !isSearching && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-              <div className="flex items-center">
-                <Icon icon="mdi:alert-circle" className="w-6 h-6 text-red-500 mr-3" />
-                <div>
-                  <h3 className="text-red-700 dark:text-red-400 font-medium">Erro na busca</h3>
-                  <p className="text-sm text-red-600 dark:text-red-500">{searchError}</p>
-                </div>
+          {searchError && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2">
+                <Icon icon="material-symbols:error" className="text-red-500" />
+                <span className="font-medium text-red-900 dark:text-red-100">Erro na busca</span>
               </div>
+              <p className="text-red-800 dark:text-red-200 mt-2">{searchError}</p>
             </div>
           )}
 
           {/* Usuário encontrado */}
-          {searchedUser && !isSearching && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="p-6">
+          {searchedUser && !notFound && (
+            <div className="space-y-6">
+              {/* Card do usuário */}
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   {/* Avatar e informações */}
-                  <div className="flex items-center space-x-4">
-                    <Image
-                      src={searchedUser.avatarUrls["48x48"] || "/default-avatar.png"}
-                      width={64}
-                      height={64}
-                      alt="Avatar do usuário"
-                      className="rounded-full"
-                    />
+                  <div className="flex items-center gap-4">
+                    {searchedUser.avatarUrls && (
+                      <Image
+                        src={searchedUser.avatarUrls["48x48"]}
+                        alt={searchedUser.displayName}
+                        width={64}
+                        height={64}
+                        className="rounded-full border-2 border-gray-200 dark:border-gray-600"
+                      />
+                    )}
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                         {searchedUser.displayName}
-                      </h3>
-                      <p className="text-gray-600 dark:text-gray-400">{searchedUser.emailAddress}</p>
-                      <div className="flex items-center space-x-2 mt-2">
+                      </h2>
+                      <p className="text-gray-600 dark:text-gray-300 mb-2">
+                        {searchedUser.emailAddress}
+                      </p>
+                      <div className="flex gap-2">
                         <Badge color={searchedUser.active ? 'green' : 'red'} size="sm">
                           {searchedUser.active ? 'Ativo' : 'Inativo'}
                         </Badge>
@@ -395,102 +478,84 @@ export default function AtlassianUsersPage() {
                   <div className="flex flex-wrap gap-2 ml-auto">
                     {outOfDirectory ? (
                       <Button
-                        color="blue"
+                        color="green"
                         size="sm"
                         onClick={() => setOpenInviteUserModal(true)}
                       >
-                        <Icon icon="mdi:email-plus" className="w-4 h-4 mr-2" />
-                        Adicionar ao Diretório
+                        <Icon icon="mdi:plus" className="w-4 h-4 mr-2" />
+                        Convidar
                       </Button>
                     ) : (
                       <>
+                        <Button
+                          color="blue"
+                          size="sm"
+                          onClick={() => setOpenAddToGroupModal(true)}
+                        >
+                          <Icon icon="mdi:account-group" className="w-4 h-4 mr-2" />
+                          Adicionar ao Grupo
+                        </Button>
                         {searchedUser.active && (
-                          <>
-                            <Button
-                              color="green"
-                              size="sm"
-                              onClick={() => setOpenAddToGroupModal(true)}
-                              disabled={availableGroups.length === 0}
-                            >
-                              <Icon icon="mdi:account-plus" className="w-4 h-4 mr-2" />
-                              Adicionar a Grupo
-                            </Button>
-                            <Button
-                              color="red"
-                              size="sm"
-                              onClick={() => setOpenDeactivateUserModal(true)}
-                            >
-                              <Icon icon="mdi:account-off" className="w-4 h-4 mr-2" />
-                              Suspender
-                            </Button>
-                          </>
+                          <Button
+                            color="red"
+                            size="sm"
+                            onClick={() => setOpenDeactivateUserModal(true)}
+                          >
+                            <Icon icon="mdi:account-cancel" className="w-4 h-4 mr-2" />
+                            Suspender
+                          </Button>
                         )}
                       </>
                     )}
                   </div>
                 </div>
-
-                {/* Grupos do usuário */}
-                {userGroups.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
-                      Grupos do Usuário
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                      {userGroups.map((group: any, index: number) => (
-                        <Badge key={index} color="purple" size="sm">
-                          {group.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
+
+              {/* ✅ NOVA SEÇÃO: Grupos do usuário */}
+              <UserGroupsDisplay groups={userGroups} />
             </div>
           )}
 
           {/* Usuário não encontrado */}
-          {notFound && !isSearching && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
-              <div className="text-center">
-                <Icon icon="mdi:account-search" className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-yellow-800 dark:text-yellow-400 mb-2">
-                  Usuário não encontrado
-                </h3>
-                <p className="text-yellow-700 dark:text-yellow-500 mb-4">
-                  Não foi possível encontrar um usuário com o email &quot;{email}&quot; no Atlassian.
-                </p>
-                <Button
-                  color="yellow"
-                  onClick={() => setOpenInviteUserModal(true)}
-                >
-                  <Icon icon="mdi:email-plus" className="w-4 h-4 mr-2" />
-                  Convidar Usuário
-                </Button>
-              </div>
+          {notFound && (
+            <div className="text-center py-12">
+              <Icon icon="mdi:account-search" className="w-24 h-24 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">
+                Usuário não encontrado
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                O email <strong>{email}</strong> não foi encontrado no diretório do Atlassian.
+              </p>
+              <Button
+                color="green"
+                onClick={() => setOpenInviteUserModal(true)}
+              >
+                <Icon icon="mdi:email-send" className="w-4 h-4 mr-2" />
+                Enviar Convite
+              </Button>
             </div>
           )}
         </div>
       </div>
 
       {/* ✅ Modal de convite */}
-      <Modal show={openInviteUserModal} onClose={() => setOpenInviteUserModal(false)} size="md">
+      <Modal show={openInviteUserModal} onClose={() => setOpenInviteUserModal(false)}>
         <Modal.Header>Convidar Usuário</Modal.Header>
         <Modal.Body>
           <div className="space-y-4">
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-700 dark:text-gray-300">
               Deseja enviar um convite para <strong>{email}</strong> acessar o Atlassian?
             </p>
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-              <p className="text-sm text-blue-700 dark:text-blue-400">
-                O usuário receberá um email com instruções para acessar o sistema.
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                O usuário receberá um email com instruções para criar sua conta.
               </p>
             </div>
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={handleInviteUser} disabled={isInviting}>
-            {isInviting ? 'Enviando...' : 'Sim, Convidar'}
+          <Button color="green" onClick={handleInviteUser} disabled={isInviting}>
+            {isInviting ? 'Enviando...' : 'Enviar Convite'}
           </Button>
           <Button color="gray" onClick={() => setOpenInviteUserModal(false)}>
             Cancelar
@@ -498,25 +563,21 @@ export default function AtlassianUsersPage() {
         </Modal.Footer>
       </Modal>
 
-      {/* ✅ Modal de adicionar a grupo */}
-      <Modal show={openAddToGroupModal} onClose={() => setOpenAddToGroupModal(false)} size="md">
-        <Modal.Header>Adicionar a Grupo</Modal.Header>
+      {/* ✅ Modal de adicionar ao grupo */}
+      <Modal show={openAddToGroupModal} onClose={() => setOpenAddToGroupModal(false)}>
+        <Modal.Header>Adicionar ao Grupo</Modal.Header>
         <Modal.Body>
           <div className="space-y-4">
-            <p className="text-gray-600 dark:text-gray-400">
-              Selecione o grupo para adicionar <strong>{searchedUser?.displayName}</strong>:
-            </p>
             <div>
-              <Label htmlFor="group-select" value="Grupo" />
+              <Label htmlFor="group-select">Selecione o grupo:</Label>
               <Select
                 id="group-select"
                 value={selectedGroup}
                 onChange={(e) => setSelectedGroup(e.target.value)}
-                required
               >
                 <option value="">Selecione um grupo...</option>
                 {availableGroups.map((group) => (
-                  <option key={group.id} value={group.group_id}>
+                  <option key={group.group_id} value={group.group_id}>
                     {group.group_name}
                   </option>
                 ))}
@@ -526,6 +587,7 @@ export default function AtlassianUsersPage() {
         </Modal.Body>
         <Modal.Footer>
           <Button 
+            color="blue" 
             onClick={handleAssignToGroup} 
             disabled={isAssigning || !selectedGroup}
           >

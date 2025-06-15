@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import { useEffect, useState } from "react";
 import 'react-toastify/dist/ReactToastify.css';
-import confetti from 'canvas-confetti';
 import Loading from "@/src/components/loading";
 import { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
@@ -43,16 +42,6 @@ const showToast = (type: "success" | "warn" | "error", message: string) => {
     draggable: true,
     progress: undefined,
     theme: "light",
-  });
-};
-
-const showConfetti = () => {
-  confetti({
-    particleCount: 250,
-    spread: 120,
-    origin: { x: 0.5, y: 0.5 },
-    decay: 0.9,
-    gravity: 0.7,
   });
 };
 
