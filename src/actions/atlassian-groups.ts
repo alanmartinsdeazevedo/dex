@@ -6,7 +6,6 @@ import {
   buildApiUrl,
 } from '@/src/utils/atlassian';
 
-
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3002';
 
 // ==================== INTERFACES LOCAIS ====================
@@ -30,10 +29,37 @@ interface GroupsResponse {
   };
 }
 
-// ==================== FUNÇÕES DE GRUPOS ====================
+// ==================== INTERFACES PARA GRUPOS DA ATLASSIAN ====================
+
+export interface AtlassianGroupFromApi {
+  name: string;
+  groupId?: string;
+  self?: string;
+  html?: string;
+  labels?: any[];
+  users?: {
+    size: number;
+    items: any[];
+    'max-results': number;
+    'start-index': number;
+    'end-index': number;
+  };
+  expand?: string;
+  inDatabase?: boolean;
+}
+
+export interface AtlassianGroupsResponse {
+  groups: AtlassianGroupFromApi[];
+  total: number;
+  maxResults: number;
+  startAt: number;
+  isLast: boolean;
+}
+
+// ==================== FUNÇÕES DE GRUPOS DO CODEX ====================
 
 /**
- * ✅ Busca todos os grupos com filtros e paginação
+ * ✅ Busca todos os grupos do Codex com filtros e paginação
  */
 export async function fetchAtlassianGroups(
   filters: GroupFilters = {}
@@ -51,7 +77,7 @@ export async function fetchAtlassianGroups(
     if (filters.offset) params.append('offset', filters.offset.toString());
 
     const url = `${BACKEND_URL}/atlassian/groups?${params.toString()}`;
-    console.log('🔍 Buscando grupos:', url);
+    console.log('🔍 Buscando grupos do Codex:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -67,7 +93,7 @@ export async function fetchAtlassianGroups(
     }
 
     const result = await response.json();
-    console.log('✅ Resposta do backend:', result);
+    console.log('✅ Resposta do backend (grupos Codex):', result);
     
     // ✅ CORREÇÃO: Adaptar resposta do backend para o formato esperado pelo frontend
     return {
@@ -84,17 +110,17 @@ export async function fetchAtlassianGroups(
       },
     };
   } catch (error: any) {
-    console.error('❌ Erro ao buscar grupos:', error);
+    console.error('❌ Erro ao buscar grupos do Codex:', error);
     return {
       success: false,
-      message: 'Erro ao buscar grupos',
+      message: 'Erro ao buscar grupos do Codex',
       error: error.message,
     };
   }
 }
 
 /**
- * ✅ Busca um grupo específico por ID
+ * ✅ Busca um grupo específico do Codex por ID
  */
 export async function fetchAtlassianGroupById(
   groupId: string
@@ -123,17 +149,17 @@ export async function fetchAtlassianGroupById(
     const result = await response.json();
     return result;
   } catch (error: any) {
-    console.error('Erro ao buscar grupo:', error);
+    console.error('Erro ao buscar grupo do Codex:', error);
     return {
       success: false,
-      message: 'Erro ao buscar grupo',
+      message: 'Erro ao buscar grupo do Codex',
       error: error.message,
     };
   }
 }
 
 /**
- * ✅ Cria um novo grupo
+ * ✅ Cria um novo grupo no Codex
  */
 export async function createAtlassianGroup(
   groupData: {
@@ -149,6 +175,13 @@ export async function createAtlassianGroup(
       return {
         success: false,
         message: 'ID do grupo e nome são obrigatórios',
+      };
+    }
+
+    if (!userId.trim()) {
+      return {
+        success: false,
+        message: 'ID do usuário é obrigatório',
       };
     }
 
@@ -170,17 +203,17 @@ export async function createAtlassianGroup(
     const result = await response.json();
     return result;
   } catch (error: any) {
-    console.error('Erro ao criar grupo:', error);
+    console.error('Erro ao criar grupo no Codex:', error);
     return {
       success: false,
-      message: 'Erro ao criar grupo',
+      message: 'Erro ao criar grupo no Codex',
       error: error.message,
     };
   }
 }
 
 /**
- * ✅ Atualiza um grupo existente
+ * ✅ Atualiza um grupo existente no Codex
  */
 export async function updateAtlassianGroup(
   groupId: string,
@@ -197,6 +230,13 @@ export async function updateAtlassianGroup(
       return {
         success: false,
         message: 'ID do grupo é obrigatório',
+      };
+    }
+
+    if (!userId.trim()) {
+      return {
+        success: false,
+        message: 'ID do usuário é obrigatório',
       };
     }
 
@@ -218,17 +258,17 @@ export async function updateAtlassianGroup(
     const result = await response.json();
     return result;
   } catch (error: any) {
-    console.error('Erro ao atualizar grupo:', error);
+    console.error('Erro ao atualizar grupo no Codex:', error);
     return {
       success: false,
-      message: 'Erro ao atualizar grupo',
+      message: 'Erro ao atualizar grupo no Codex',
       error: error.message,
     };
   }
 }
 
 /**
- * ✅ Remove um grupo
+ * ✅ Remove um grupo do Codex
  */
 export async function deleteAtlassianGroup(
   groupId: string,
@@ -239,6 +279,13 @@ export async function deleteAtlassianGroup(
       return {
         success: false,
         message: 'ID do grupo é obrigatório',
+      };
+    }
+
+    if (!userId.trim()) {
+      return {
+        success: false,
+        message: 'ID do usuário é obrigatório',
       };
     }
 
@@ -259,10 +306,10 @@ export async function deleteAtlassianGroup(
     const result = await response.json();
     return result;
   } catch (error: any) {
-    console.error('Erro ao remover grupo:', error);
+    console.error('Erro ao remover grupo do Codex:', error);
     return {
       success: false,
-      message: 'Erro ao remover grupo',
+      message: 'Erro ao remover grupo do Codex',
       error: error.message,
     };
   }
@@ -360,37 +407,10 @@ export async function validateAtlassianId(
   }
 }
 
-// ==================== INTERFACES ====================
-
-export interface AtlassianGroupFromApi {
-  name: string;
-  groupId?: string;
-  self?: string;
-  html?: string;
-  labels?: any[];
-  users?: {
-    size: number;
-    items: any[];
-    'max-results': number;
-    'start-index': number;
-    'end-index': number;
-  };
-  expand?: string;
-  inDatabase?: boolean;
-}
-
-export interface AtlassianGroupsResponse {
-  groups: AtlassianGroupFromApi[];
-  total: number;
-  maxResults: number;
-  startAt: number;
-  isLast: boolean;
-}
-
-// ==================== FUNÇÕES DE GRUPOS DA ATLASSIAN ====================
+// ==================== FUNÇÕES DE GRUPOS DA ATLASSIAN (API DIRETA) ====================
 
 /**
- * ✅ Busca grupos diretamente da Atlassian
+ * ✅ Busca grupos diretamente da Atlassian (não do Codex)
  */
 export async function fetchAtlassianGroupsFromApi(
   maxResults: number = 50,
@@ -406,6 +426,8 @@ export async function fetchAtlassianGroupsFromApi(
     if (search?.trim()) {
       params.append('search', search.trim());
     }
+
+    console.log('🔍 Buscando grupos diretamente da Atlassian:', params.toString());
 
     const response = await fetch(
       `${BACKEND_URL}/atlassian/atlassian-groups?${params.toString()}`,
@@ -424,9 +446,10 @@ export async function fetchAtlassianGroupsFromApi(
     }
 
     const result = await response.json();
+    console.log('✅ Resposta da Atlassian:', result);
     return result;
   } catch (error: any) {
-    console.error('Erro ao buscar grupos da Atlassian:', error);
+    console.error('❌ Erro ao buscar grupos da Atlassian:', error);
     return {
       success: false,
       message: 'Erro ao buscar grupos da Atlassian',
@@ -457,13 +480,15 @@ export async function createGroupInAtlassian(
       };
     }
 
+    console.log('🚀 Criando grupo na Atlassian:', groupName);
+
     const response = await fetch(`${BACKEND_URL}/atlassian/atlassian-groups`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'user-id': userId,
       },
-      body: JSON.stringify({ groupName }),
+      body: JSON.stringify({ groupName: groupName.trim() }),
       cache: 'no-store',
     });
 
@@ -473,9 +498,10 @@ export async function createGroupInAtlassian(
     }
 
     const result = await response.json();
+    console.log('✅ Grupo criado na Atlassian:', result);
     return result;
   } catch (error: any) {
-    console.error('Erro ao criar grupo na Atlassian:', error);
+    console.error('❌ Erro ao criar grupo na Atlassian:', error);
     return {
       success: false,
       message: 'Erro ao criar grupo na Atlassian',
@@ -485,7 +511,7 @@ export async function createGroupInAtlassian(
 }
 
 /**
- * ✅ Adiciona um grupo da Atlassian à base de dados local
+ * ✅ Adiciona um grupo da Atlassian à base de dados local (Codex)
  */
 export async function addAtlassianGroupToDatabase(
   groupName: string,
@@ -511,6 +537,14 @@ export async function addAtlassianGroupToDatabase(
       };
     }
 
+    console.log('📊 Adicionando grupo da Atlassian ao Codex:', groupName);
+
+    const requestData = {
+      groupId: groupData.groupId || groupName,
+      description: groupData.description || `Grupo "${groupName}" importado da Atlassian`,
+      order: groupData.order || 1,
+    };
+
     const response = await fetch(
       `${BACKEND_URL}/atlassian/atlassian-groups/${encodeURIComponent(groupName)}/add-to-database`,
       {
@@ -519,7 +553,7 @@ export async function addAtlassianGroupToDatabase(
           'Content-Type': 'application/json',
           'user-id': userId,
         },
-        body: JSON.stringify(groupData),
+        body: JSON.stringify(requestData),
         cache: 'no-store',
       }
     );
@@ -530,9 +564,10 @@ export async function addAtlassianGroupToDatabase(
     }
 
     const result = await response.json();
+    console.log('✅ Grupo adicionado ao Codex:', result);
     return result;
   } catch (error: any) {
-    console.error('Erro ao adicionar grupo à base de dados:', error);
+    console.error('❌ Erro ao adicionar grupo à base de dados:', error);
     return {
       success: false,
       message: 'Erro ao adicionar grupo à base de dados',
@@ -542,7 +577,7 @@ export async function addAtlassianGroupToDatabase(
 }
 
 /**
- * ✅ Verifica se um grupo da Atlassian já está na base de dados
+ * ✅ Verifica se um grupo da Atlassian já está na base de dados (Codex)
  */
 export async function checkGroupInDatabase(
   groupName: string
@@ -574,7 +609,7 @@ export async function checkGroupInDatabase(
     const result = await response.json();
     return result;
   } catch (error: any) {
-    console.error('Erro ao verificar grupo na base de dados:', error);
+    console.error('❌ Erro ao verificar grupo na base de dados:', error);
     return {
       success: false,
       message: 'Erro ao verificar grupo na base de dados',

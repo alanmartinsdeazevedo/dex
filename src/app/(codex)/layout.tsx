@@ -61,7 +61,7 @@ export default function DexLayout({ children }: { children: React.ReactNode }) {
             <div className="fixed p-6 h-screen">
                 <Sidebar />
             </div>
-            <main className="flex-1 ml-80 pt-6">
+            <main className="flex-1 ml-80 p-6">
                 <section>{children}</section>
             </main>
         </>

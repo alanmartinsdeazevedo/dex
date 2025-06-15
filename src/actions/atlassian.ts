@@ -1,3 +1,4 @@
+// src/actions/atlassian.ts
 'use server'
 
 import {
@@ -205,6 +206,166 @@ export async function inviteUserToAtlassian(
     return {
       success: false,
       message: 'Erro ao convidar usuário',
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * ✅ Adiciona usuário a um grupo na Atlassian
+ */
+export async function addUserToAtlassianGroup(
+  accountId: string,
+  groupName: string,
+  userId: string
+): Promise<ApiResponse<any>> {
+  try {
+    if (!accountId.trim()) {
+      return {
+        success: false,
+        message: 'Account ID é obrigatório',
+      };
+    }
+
+    if (!groupName.trim()) {
+      return {
+        success: false,
+        message: 'Nome do grupo é obrigatório',
+      };
+    }
+
+    if (!userId.trim()) {
+      return {
+        success: false,
+        message: 'ID do usuário é obrigatório',
+      };
+    }
+
+    const response = await fetch(`${BACKEND_URL}/atlassian/users/add-to-group`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': userId,
+      },
+      body: JSON.stringify({ 
+        accountId, 
+        groupName 
+      }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Erro ao adicionar usuário ao grupo:', error);
+    return {
+      success: false,
+      message: 'Erro ao adicionar usuário ao grupo',
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * ✅ Remove usuário de um grupo na Atlassian
+ */
+export async function removeUserFromAtlassianGroup(
+  accountId: string,
+  groupName: string,
+  userId: string
+): Promise<ApiResponse<any>> {
+  try {
+    if (!accountId.trim()) {
+      return {
+        success: false,
+        message: 'Account ID é obrigatório',
+      };
+    }
+
+    if (!groupName.trim()) {
+      return {
+        success: false,
+        message: 'Nome do grupo é obrigatório',
+      };
+    }
+
+    if (!userId.trim()) {
+      return {
+        success: false,
+        message: 'ID do usuário é obrigatório',
+      };
+    }
+
+    const response = await fetch(`${BACKEND_URL}/atlassian/users/remove-from-group`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': userId,
+      },
+      body: JSON.stringify({ 
+        accountId, 
+        groupName 
+      }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Erro ao remover usuário do grupo:', error);
+    return {
+      success: false,
+      message: 'Erro ao remover usuário do grupo',
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * ✅ Busca descrição de um grupo
+ */
+export async function getGroupDescription(groupIdentifier: string): Promise<ApiResponse<{ description: string }>> {
+  try {
+    if (!groupIdentifier.trim()) {
+      return {
+        success: false,
+        message: 'Identificador do grupo é obrigatório',
+      };
+    }
+
+    const response = await fetch(
+      `${BACKEND_URL}/atlassian/groups/description/${encodeURIComponent(groupIdentifier)}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Erro ao buscar descrição do grupo:', error);
+    return {
+      success: false,
+      message: 'Erro ao buscar descrição do grupo',
       error: error.message,
     };
   }

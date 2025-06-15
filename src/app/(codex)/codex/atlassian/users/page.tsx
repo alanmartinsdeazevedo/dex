@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import { ConfirmModal } from "@/src/components/modal";
-import { Modal, Button, Badge, TextInput, Select, Label } from "flowbite-react";
+import { Modal, Button, Badge, TextInput, Select, Label, Tooltip } from "flowbite-react";
 import { useEffect, useState, FormEvent } from "react";
 import 'react-toastify/dist/ReactToastify.css';
 import confetti from 'canvas-confetti';
@@ -18,7 +18,10 @@ import {
   searchAtlassianUser, 
   inviteUserToAtlassian, 
   fetchAtlassianGroups,
-  fetchLicenseUsage
+  fetchLicenseUsage,
+  addUserToAtlassianGroup,
+  removeUserFromAtlassianGroup,
+  getGroupDescription
 } from '@/src/actions/atlassian';
 
 // ✅ Importar tipos e utilitários
@@ -66,9 +69,16 @@ interface UserGroupProps {
     groupId: string;
     self: string;
   };
+  onRemove?: (groupName: string) => void;
+  isRemoving?: boolean;
+  showRemoveButton?: boolean;
 }
 
-const UserGroupCard = ({ group }: UserGroupProps) => {
+const UserGroupCard = ({ group, onRemove, isRemoving, showRemoveButton }: UserGroupProps) => {
+  const [showDescription, setShowDescription] = useState(false);
+  const [description, setDescription] = useState<string>('');
+  const [loadingDescription, setLoadingDescription] = useState(false);
+
   const getGroupIcon = (groupName: string) => {
     const name = groupName.toLowerCase();
     if (name.includes('admin')) return 'material-symbols:admin-panel-settings';
@@ -96,6 +106,25 @@ const UserGroupCard = ({ group }: UserGroupProps) => {
     return 'bg-gray-100 border-gray-200 text-gray-800 dark:bg-gray-900/20 dark:border-gray-800 dark:text-gray-300';
   };
 
+  const handleShowDescription = async () => {
+    if (!showDescription && !description) {
+      setLoadingDescription(true);
+      try {
+        const result = await getGroupDescription(group.groupId || group.name);
+        if (result.success && result.data) {
+          setDescription(result.data.description || 'Sem descrição disponível');
+        } else {
+          setDescription('Descrição não encontrada');
+        }
+      } catch (error) {
+        setDescription('Erro ao carregar descrição');
+      } finally {
+        setLoadingDescription(false);
+      }
+    }
+    setShowDescription(!showDescription);
+  };
+
   return (
     <div className={`rounded-lg border p-3 transition-all hover:shadow-md ${getGroupColor(group.name)}`}>
       <div className="flex items-start gap-3">
@@ -104,19 +133,81 @@ const UserGroupCard = ({ group }: UserGroupProps) => {
           className="text-xl flex-shrink-0 mt-0.5" 
         />
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm leading-tight mb-1 break-words">
-            {group.name}
-          </h4>
-          <p className="text-xs opacity-75 font-mono break-all">
-            {group.groupId}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h4 className="font-medium text-sm leading-tight mb-1 break-words">
+                {group.name}
+              </h4>
+              <p className="text-xs opacity-75 font-mono break-all">
+                {group.groupId}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Botão de informação */}
+              <Tooltip content="Ver descrição do grupo">
+                <Button
+                  size="xs"
+                  color="gray"
+                  onClick={handleShowDescription}
+                  disabled={loadingDescription}
+                  className="p-1"
+                >
+                  {loadingDescription ? (
+                    <Icon icon="mdi:loading" className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Icon icon="material-symbols:info" className="w-3 h-3" />
+                  )}
+                </Button>
+              </Tooltip>
+              
+              {/* Botão de remover (se permitido) */}
+              {showRemoveButton && onRemove && (
+                <Tooltip content="Remover do grupo">
+                  <Button
+                    size="xs"
+                    color="red"
+                    onClick={() => onRemove(group.name)}
+                    disabled={isRemoving}
+                    className="p-1"
+                  >
+                    {isRemoving ? (
+                      <Icon icon="mdi:loading" className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Icon icon="material-symbols:remove" className="w-3 h-3" />
+                    )}
+                  </Button>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+          
+          {/* Descrição expandida */}
+          {showDescription && (
+            <div className="mt-2 pt-2 border-t border-current border-opacity-20">
+              <p className="text-xs opacity-80 italic">
+                {description}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-const UserGroupsDisplay = ({ groups }: { groups: any[] }) => {
+const UserGroupsDisplay = ({ 
+  groups, 
+  onRemoveFromGroup, 
+  isRemoving, 
+  removingGroupName,
+  allowRemove = false 
+}: { 
+  groups: any[];
+  onRemoveFromGroup?: (groupName: string) => void;
+  isRemoving?: boolean;
+  removingGroupName?: string;
+  allowRemove?: boolean;
+}) => {
   if (!groups || groups.length === 0) {
     return (
       <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 text-center">
@@ -147,7 +238,13 @@ const UserGroupsDisplay = ({ groups }: { groups: any[] }) => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {groups.map((group, index) => (
-          <UserGroupCard key={group.groupId || index} group={group} />
+          <UserGroupCard 
+            key={group.groupId || index} 
+            group={group}
+            onRemove={allowRemove ? onRemoveFromGroup : undefined}
+            isRemoving={isRemoving && removingGroupName === group.name}
+            showRemoveButton={allowRemove}
+          />
         ))}
       </div>
     </div>
@@ -188,10 +285,13 @@ export default function AtlassianUsersPage() {
   const [openInviteUserModal, setOpenInviteUserModal] = useState(false);
   const [openAddToGroupModal, setOpenAddToGroupModal] = useState(false);
   const [openDeactivateUserModal, setOpenDeactivateUserModal] = useState(false);
+  const [openRemoveFromGroupModal, setOpenRemoveFromGroupModal] = useState(false);
   
   // Estados de ações
   const [isInviting, setIsInviting] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [removingGroupName, setRemovingGroupName] = useState<string>('');
   
   // Estados de licenças
   const [licenseData, setLicenseData] = useState<LicenseData>({ available: 0, used: 0 });
@@ -216,7 +316,7 @@ export default function AtlassianUsersPage() {
     }
   };
 
-  // ✅ Carregar grupos disponíveis
+  // ✅ Carregar grupos disponíveis (somente grupos do Codex)
   const loadAvailableGroups = async () => {
     try {
       const result = await fetchAtlassianGroups({
@@ -225,7 +325,6 @@ export default function AtlassianUsersPage() {
       });
 
       if (result.success && result.data) {
-        // ✅ Verificação robusta que funciona para ambas as estruturas
         let groupsArray: AtlassianGroup[] = [];
         
         if (Array.isArray(result.data)) {
@@ -235,7 +334,7 @@ export default function AtlassianUsersPage() {
         }
         
         setAvailableGroups(groupsArray);
-        console.log('Grupos carregados:', groupsArray.length);
+        console.log('Grupos do Codex carregados:', groupsArray.length);
       } else {
         setAvailableGroups([]);
         console.warn('Nenhum grupo encontrado');
@@ -266,14 +365,12 @@ export default function AtlassianUsersPage() {
       setSearchedUser(null);
       setUserGroups([]);
 
-      // ✅ Usar a nova rota que retorna usuário com grupos
       const result = await searchAtlassianUser(email);
 
       if (result.success && result.data && result.data.length > 0) {
         const userData = result.data[0];
         setSearchedUser(userData);
         
-        // ✅ Definir grupos do usuário (agora vem do backend)
         const groups = userData.groups || [];
         setUserGroups(groups);
 
@@ -311,7 +408,6 @@ export default function AtlassianUsersPage() {
         showConfetti();
         setOpenInviteUserModal(false);
         
-        // Buscar novamente para ver se o usuário foi adicionado
         setTimeout(() => {
           handleSearchUser(new Event('submit') as any);
         }, 2000);
@@ -326,7 +422,7 @@ export default function AtlassianUsersPage() {
     }
   };
 
-  // ✅ Atribuir usuário a grupo (placeholder - será implementado quando backend suportar)
+  // ✅ Atribuir usuário a grupo (agora funcional)
   const handleAssignToGroup = async () => {
     if (!selectedGroup || !searchedUser) {
       showToast("warn", "Selecione um grupo.");
@@ -336,10 +432,32 @@ export default function AtlassianUsersPage() {
     try {
       setIsAssigning(true);
       
-      // TODO: Implementar quando backend tiver endpoint para atribuir usuário a grupo
-      showToast("info", "Funcionalidade de atribuição será implementada em breve.");
-      setOpenAddToGroupModal(false);
+      // Encontrar o grupo selecionado para obter o group_id
+      const selectedGroupData = availableGroups.find(g => g.id === selectedGroup);
       
+      if (!selectedGroupData) {
+        showToast("error", "Grupo selecionado não encontrado.");
+        return;
+      }
+
+      const result = await addUserToAtlassianGroup(
+        searchedUser.accountId, 
+        selectedGroupData.group_id,
+        user?.id || ''
+      );
+      
+      if (result.success) {
+        showToast("success", `Usuário adicionado ao grupo "${selectedGroupData.group_name}" com sucesso!`);
+        setOpenAddToGroupModal(false);
+        setSelectedGroup('');
+        
+        // Atualizar a lista de grupos do usuário
+        setTimeout(() => {
+          handleSearchUser(new Event('submit') as any);
+        }, 1000);
+      } else {
+        showToast("error", result.message || "Erro ao adicionar usuário ao grupo.");
+      }
     } catch (error: any) {
       console.error("Erro ao atribuir usuário ao grupo:", error);
       showToast("error", "Erro ao atribuir usuário ao grupo.");
@@ -348,12 +466,51 @@ export default function AtlassianUsersPage() {
     }
   };
 
+  // ✅ Remover usuário do grupo
+  const handleRemoveFromGroup = async (groupName: string) => {
+    if (!searchedUser) return;
+
+    setRemovingGroupName(groupName);
+    setOpenRemoveFromGroupModal(true);
+  };
+
+  const confirmRemoveFromGroup = async () => {
+    if (!searchedUser || !removingGroupName) return;
+
+    try {
+      setIsRemoving(true);
+      
+      const result = await removeUserFromAtlassianGroup(
+        searchedUser.accountId,
+        removingGroupName,
+        user?.id || ''
+      );
+
+      if (result.success) {
+        showToast("success", `Usuário removido do grupo "${removingGroupName}" com sucesso!`);
+        setOpenRemoveFromGroupModal(false);
+        setRemovingGroupName('');
+        
+        // Atualizar a lista de grupos do usuário
+        setTimeout(() => {
+          handleSearchUser(new Event('submit') as any);
+        }, 1000);
+      } else {
+        showToast("error", result.message || "Erro ao remover usuário do grupo.");
+      }
+    } catch (error: any) {
+      console.error("Erro ao remover usuário do grupo:", error);
+      showToast("error", "Erro ao remover usuário do grupo.");
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
   // ✅ Suspender usuário (placeholder - será implementado quando backend suportar)
   const handleSuspendUser = async () => {
     if (!searchedUser) return;
 
     try {
-      // TODO: Implementar quando backend tiver endpoint para suspender usuário
       showToast("info", "Funcionalidade de suspensão será implementada em breve.");
       setOpenDeactivateUserModal(false);
       
@@ -380,12 +537,12 @@ export default function AtlassianUsersPage() {
 
   return (
     <>
-      <div className="flex flex-col items-center py-8 mx-auto gap-4 md:h-screen lg:py-0">
+      <div className="flex flex-col mx-auto gap-4 max-h-screen overflow-hidden">
         
-        {/* ✅ Barra de busca no local original */}
-        <nav className="block w-full px-4 py-2 mx-auto bg-white dark:bg-gray-700 shadow-md rounded-md lg:px-8 lg:py-3">
+        {/* ✅ Barra de busca responsiva */}
+        <nav className="block w-full px-2 sm:px-4 py-2 mx-auto bg-white dark:bg-gray-700 shadow-md rounded-md lg:px-8 lg:py-3 flex-shrink-0">
           <div className="flex flex-row items-center justify-center w-full">
-            <div className="flex w-full max-w-lg items-center p-4">
+            <div className="flex w-full max-w-lg items-center p-2 sm:p-4">
               <form className="w-full" onSubmit={handleSearchUser}>
                 <label htmlFor="email-search-input" className="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white">
                   Buscar Usuário no Atlassian
@@ -396,7 +553,7 @@ export default function AtlassianUsersPage() {
                     id="email-search-input"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full p-4 pl-4 pr-20 bg-transparent text-sm text-gray-900 border-hidden rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                    className="w-full p-3 sm:p-4 pl-3 sm:pl-4 pr-16 sm:pr-20 bg-transparent text-sm text-gray-900 border-hidden rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                     placeholder="Buscar por email do usuário..."
                     disabled={isSearching}
                     required
@@ -404,7 +561,7 @@ export default function AtlassianUsersPage() {
                   <button
                     type="submit"
                     disabled={isSearching || !email.trim()}
-                    className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50"
+                    className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-3 sm:px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50"
                   >
                     {isSearching ? (
                       <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />
@@ -418,8 +575,7 @@ export default function AtlassianUsersPage() {
           </div>
         </nav>
 
-        {/* ✅ Área de resultados */}
-        <div className="w-full">
+        <div className="flex-1 overflow-auto min-h-0 px-2 sm:px-4">
           {/* Estado de carregamento */}
           {isSearching && (
             <div className="text-center py-8">
@@ -443,27 +599,27 @@ export default function AtlassianUsersPage() {
           {searchedUser && !notFound && (
             <div className="space-y-6">
               {/* Card do usuário */}
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6 shadow-sm">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
                   {/* Avatar e informações */}
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
                     {searchedUser.avatarUrls && (
                       <Image
                         src={searchedUser.avatarUrls["48x48"]}
                         alt={searchedUser.displayName}
                         width={64}
                         height={64}
-                        className="rounded-full border-2 border-gray-200 dark:border-gray-600"
+                        className="rounded-full border-2 border-gray-200 dark:border-gray-600 flex-shrink-0"
                       />
                     )}
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">
                         {searchedUser.displayName}
                       </h2>
-                      <p className="text-gray-600 dark:text-gray-300 mb-2">
+                      <p className="text-gray-600 dark:text-gray-300 mb-2 truncate">
                         {searchedUser.emailAddress}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Badge color={searchedUser.active ? 'green' : 'red'} size="sm">
                           {searchedUser.active ? 'Ativo' : 'Inativo'}
                         </Badge>
@@ -475,12 +631,13 @@ export default function AtlassianUsersPage() {
                   </div>
 
                   {/* Ações */}
-                  <div className="flex flex-wrap gap-2 ml-auto">
+                  <div className="flex flex-wrap gap-2 w-full lg:w-auto">
                     {outOfDirectory ? (
                       <Button
                         color="green"
                         size="sm"
                         onClick={() => setOpenInviteUserModal(true)}
+                        className="flex-1 lg:flex-none"
                       >
                         <Icon icon="mdi:plus" className="w-4 h-4 mr-2" />
                         Convidar
@@ -491,15 +648,17 @@ export default function AtlassianUsersPage() {
                           color="blue"
                           size="sm"
                           onClick={() => setOpenAddToGroupModal(true)}
+                          className="flex-1 lg:flex-none"
                         >
                           <Icon icon="mdi:account-group" className="w-4 h-4 mr-2" />
-                          Adicionar ao Grupo
+                          Adicionar
                         </Button>
                         {searchedUser.active && (
                           <Button
                             color="red"
                             size="sm"
                             onClick={() => setOpenDeactivateUserModal(true)}
+                            className="flex-1 lg:flex-none"
                           >
                             <Icon icon="mdi:account-cancel" className="w-4 h-4 mr-2" />
                             Suspender
@@ -511,8 +670,14 @@ export default function AtlassianUsersPage() {
                 </div>
               </div>
 
-              {/* ✅ NOVA SEÇÃO: Grupos do usuário */}
-              <UserGroupsDisplay groups={userGroups} />
+              {/* ✅ Grupos do usuário com funcionalidade de remoção */}
+              <UserGroupsDisplay 
+                groups={userGroups}
+                onRemoveFromGroup={handleRemoveFromGroup}
+                isRemoving={isRemoving}
+                removingGroupName={removingGroupName}
+                allowRemove={searchedUser.active}
+              />
             </div>
           )}
 
@@ -568,8 +733,15 @@ export default function AtlassianUsersPage() {
         <Modal.Header>Adicionar ao Grupo</Modal.Header>
         <Modal.Body>
           <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <Icon icon="material-symbols:info" className="w-4 h-4 inline mr-2" />
+                O usuário será adicionado ao grupo na Atlassian automaticamente.
+              </p>
+            </div>
+            
             <div>
-              <Label htmlFor="group-select">Selecione o grupo:</Label>
+              <Label htmlFor="group-select">Selecione o grupo do Codex:</Label>
               <Select
                 id="group-select"
                 value={selectedGroup}
@@ -577,11 +749,16 @@ export default function AtlassianUsersPage() {
               >
                 <option value="">Selecione um grupo...</option>
                 {availableGroups.map((group) => (
-                  <option key={group.group_id} value={group.group_id}>
+                  <option key={group.id} value={group.id}>
                     {group.group_name}
                   </option>
                 ))}
               </Select>
+              {availableGroups.length === 0 && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Nenhum grupo do Codex disponível. Configure grupos primeiro.
+                </p>
+              )}
             </div>
           </div>
         </Modal.Body>
@@ -589,7 +766,7 @@ export default function AtlassianUsersPage() {
           <Button 
             color="blue" 
             onClick={handleAssignToGroup} 
-            disabled={isAssigning || !selectedGroup}
+            disabled={isAssigning || !selectedGroup || availableGroups.length === 0}
           >
             {isAssigning ? 'Adicionando...' : 'Adicionar ao Grupo'}
           </Button>
@@ -598,6 +775,22 @@ export default function AtlassianUsersPage() {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* ✅ Modal de confirmação de remoção */}
+      <ConfirmModal
+        show={openRemoveFromGroupModal}
+        title="Remover do Grupo"
+        description={`Tem certeza que deseja remover "${searchedUser?.displayName}" do grupo "${removingGroupName}"? Esta ação será realizada na Atlassian.`}
+        confirmText="Sim, Remover"
+        cancelText="Cancelar"
+        onConfirm={confirmRemoveFromGroup}
+        onCancel={() => {
+          setOpenRemoveFromGroupModal(false);
+          setRemovingGroupName('');
+        }}
+        confirmButtonColor="red"
+        isProcessing={isRemoving}
+      />
 
       {/* ✅ Modal de suspensão */}
       <ConfirmModal

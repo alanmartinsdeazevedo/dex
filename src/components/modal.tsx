@@ -8,7 +8,8 @@ interface ConfirmModalProps {
   description: React.ReactNode; // Mudança aqui: Element -> React.ReactNode
   confirmText?: string;
   isProcessing?: boolean;
-  confirmButtonColor?: "blue" | "gray" | "red" | "green" | "yellow";
+  confirmButtonColor?: "red" | "blue" | "green" | "yellow";
+  isLoading?: boolean;
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;

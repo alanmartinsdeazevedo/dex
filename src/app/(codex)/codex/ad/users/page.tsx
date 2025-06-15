@@ -285,7 +285,7 @@ export default function LdapSearchPage() {
 
   return (
     <>
-      <div className="flex flex-col items-center py-8 mx-auto gap-4 md:h-screen lg:py-0">
+      <div className="flex flex-col items-center mx-auto gap-4 max-h-screen lg:py-0">
         {/* Barra de Busca */}
         <nav className="block w-full px-4 py-2 mx-auto bg-white dark:bg-gray-700 shadow-md rounded-md lg:px-8 lg:py-3">
           <div className="flex flex-row items-center justify-center w-full">
