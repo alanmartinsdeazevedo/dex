@@ -8,7 +8,6 @@ import { Icon } from "@iconify/react/dist/iconify.js";
 import { ConfirmModal } from "@/src/components/modal";
 import { Button, Badge, Table, Dropdown, Modal, TextInput, Select, Label } from "flowbite-react";
 
-// 🚀 Importar as server actions
 import { 
   fetchSystemUsers,
   fetchSystemUserById,
@@ -21,13 +20,11 @@ import {
   fetchUsersByRole
 } from '@/src/actions/users';
 
-// 🔧 Importar utilitários client-side
 import {
   formatRelativeTime,
   getUserStatusColor
 } from '@/src/utils/users-helpers';
 
-// 📋 Importar tipos
 import type {
   SystemUser,
   UsersFilters,
@@ -35,10 +32,8 @@ import type {
   ToastType
 } from '@/src/types';
 
-// 📋 Importar constantes
 import { getAvailableRoles } from '@/src/constants/roles';
 
-// 🔐 Importar contexto de usuário
 import { useUser } from '@/src/context/UserContext';
 
 const showToast = (type: ToastType, message: string) => {

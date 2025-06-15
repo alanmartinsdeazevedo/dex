@@ -377,7 +377,7 @@ export default function AtlassianUsersPage() {
         if (userData.suspended) {
           showToast("warn", "Usuário encontrado, mas está suspenso no Atlassian.");
         } else {
-          showToast("success", `Usuário encontrado com sucesso! ${groups.length} grupos atribuídos.`);
+          showToast("success", `Usuário encontrado!`);
         }
       } else {
         setNotFound(true);
@@ -575,7 +575,7 @@ export default function AtlassianUsersPage() {
           </div>
         </nav>
 
-        <div className="flex-1 overflow-auto min-h-0 px-2 sm:px-4">
+        <div className="flex-1 overflow-auto min-h-0">
           {/* Estado de carregamento */}
           {isSearching && (
             <div className="text-center py-8">
